@@ -1,0 +1,9 @@
+/src
+.vscode/
+.DS_Store
+*.pyc
+install/
+image_files/
+results/
+logs/
+AGENTS/sessions.md

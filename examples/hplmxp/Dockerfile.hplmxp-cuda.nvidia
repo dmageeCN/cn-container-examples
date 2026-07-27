@@ -1,0 +1,52 @@
+FROM cn-nvidia:v2.0
+
+# COPY src/common/ ${SRC_DIR}/
+ARG SRC_DIR=/usr/local/src
+ARG BUILD_DIR=/usr/local/build
+ARG INSTALL_DIR=/usr/local
+ARG OMPI_VER=5.0.8
+ARG ROOT_HOME=/root
+ARG OPATH=${PATH}
+ARG OLIB=${LD_LIBRARY_PATH}
+
+COPY src/hplmxp/ ${SRC_DIR}/
+# RUN rm -rf /etc/yum.repos.d/cornelis.repo
+# RUN dnf clean all
+
+ENV OFI_HOME=${INSTALL_DIR}/libfabric
+ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
+ENV CUDA_HOME=/usr/local/cuda
+ENV CUDA_STUBS=${CUDA_HOME}/lib64/stubs
+ENV PATH="${OFI_HOME}/bin:${MPI_HOME}/bin:${CUDA_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${MPI_HOME}/lib:${CUDA_HOME}/lib64:${CUDA_STUBS}:${LD_LIBRARY_PATH}"
+ENV NVCC_APPEND_FLAGS="-forward-unknown-to-host-compiler --expt-relaxed-constexpr"
+
+ARG HPLMXP_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/rocHPL-MxP-cuda \
+-DHPLMXP_MPI_DIR=${MPI_HOME} \
+-DCMAKE_BUILD_TYPE=Release \
+-DHPLMXP_VERBOSE_PRINT=ON \
+-DHPLMXP_PROGRESS_REPORT=ON \
+-DHPLMXP_DETAILED_TIMING=ON \
+-DCMAKE_VERBOSE_MAKEFILE=ON \
+-DCMAKE_CUDA_ARCHITECTURES=90 \
+${SRC_DIR}/rocHPL-MxP"
+
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
+
+WORKDIR ${SRC_DIR}/rocHPL-MxP
+RUN git checkout cuda_port
+
+WORKDIR /tmp/hplmxp
+RUN cmake ${HPLMXP_FLAGS} && \
+    make && \
+    make install
+
+ENV PATH=${OPATH}
+ENV LD_LIBRARY_PATH=${OLIB}
+ENV CC=
+ENV CXX=
+ENV FC=
+
+WORKDIR /workspace

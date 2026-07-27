@@ -1,0 +1,108 @@
+#!/bin/bash
+
+## util is only ever sourced by build.sh/run.sh (root dispatchers) or by an
+## examples/<test>/*.sh script running standalone. Either caller guarantees
+## ROOT_DIR is already set before sourcing this file.
+
+export SRC_DIR=${ROOT_DIR}/src/${NAME}
+export IMAGE_DIR=${ROOT_DIR}/image_files
+export RESULTS_DIR=${ROOT_DIR}/results/${NAME}
+
+gcl() {
+    git clone --recurse-submodules $1
+}
+
+get_pkgs() {
+    while [[ $# -gt 0 ]]; do
+        pkg=$1
+        bname=$(basename $pkg .git)
+        ext="${pkg##*.}"
+        if [[ ! (-e ${PWD}/${bname}) ]]; then
+            if [[ $ext == 'git' ]]; then
+                echo "CLONING $pkg - ${PWD}"
+                gcl $pkg
+            else
+                echo "GETTING $pkg - ${PWD}"
+                wget $pkg
+            fi
+#        else
+#            if [[ $ext == 'git' ]]; then
+#                cd ${SRC_DIR}/${bname}
+#                git pull
+#                cd ${SRC_DIR}
+#            fi
+        fi
+        shift
+    done
+}
+
+get_repo_home() {
+    curdir=$(realpath $1)
+    if [[ -d $curdir/.git ]]; then
+        echo $curdir
+        return 0
+    fi
+    top_dir=$(dirname $curdir)
+    if [[ -d $top_dir/.git ]]; then
+        echo $top_dir
+    else
+        get_repo_home $top_dir
+    fi
+}
+
+empath () {
+	if [[ $# -lt 1 ]]
+	then
+		echo $PATH | tr : "\n" | nl -n ln
+	else
+		if [[ $# -lt 2 ]]
+		then
+			echo $1 | tr : "\n" | nl -n ln
+		else
+			echo $1 | tr $2 "\n" | nl -n ln
+		fi
+	fi
+}
+
+mkcd () {
+    mkdir -p "${1}" && cd "${1}"
+}
+
+setvar() {
+    while [[ $# -gt 0 ]]; do
+        export $1
+        shift
+    done
+}
+
+pq_grid() {
+    local n=$1
+    awk -v n="$n" 'BEGIN{
+        p = int(sqrt(n))
+        while (p > 1 && n % p != 0) p--
+        print p
+    }'
+}
+
+set_paths() {
+    type=$1
+    image_str="cn-${type}-${BASE_LIB}-${NAME}"
+    export HOST_INSTALL=${ROOT_DIR}/install/${type}
+    export OFI_HOME=${HOST_INSTALL}/libfabric
+    export MPI_HOME=${HOST_INSTALL}/openmpi-5.0.8
+
+    export PATH=${MPI_HOME}/bin:${OFI_HOME}/bin:$PATH
+    export LD_LIBRARY_PATH=${MPI_HOME}/lib:${OFI_HOME}/lib:$LD_LIBRARY_PATH
+    export CTR_IMAGE="${IMAGE_DIR}/${image_str}_v${VER}.sif"
+}
+
+get_gpu_arch() {
+    if [[ $1 == "nvidia" ]]; then
+        nvidia-smi --query-gpu=compute_cap --format=csv,noheader,nounits | head -1 | tr -d '.'
+    elif [[ $1 == "amd" ]]; then
+        rocminfo | awk -F'gfx' '/gfx[0-9]/ {print "gfx"$2; exit}'
+    else
+        echo "NO GPU HERE - EXIT"
+        exit 1
+    fi
+}

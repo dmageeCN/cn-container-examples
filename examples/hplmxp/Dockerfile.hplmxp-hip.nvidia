@@ -1,0 +1,97 @@
+FROM cn-nvidia:v2.0
+
+# COPY src/common/ ${SRC_DIR}/
+ARG SRC_DIR=/usr/local/src
+ARG BUILD_DIR=/usr/local/build
+ARG INSTALL_DIR=/usr/local
+ARG OMPI_VER=5.0.8
+ARG ROOT_HOME=/root
+ARG OPATH=${PATH}
+ARG OLIB=${LD_LIBRARY_PATH}
+
+COPY src/hplmxp/ ${SRC_DIR}/
+RUN rm -rf /etc/yum.repos.d/cornelis.repo
+# RUN dnf clean all
+
+RUN dnf install -y ${SRC_DIR}/amdgpu-install-7.2.4.70204-1.el9.noarch.rpm
+RUN echo "9.6" > /etc/dnf/vars/amdgpudistro
+
+# RUN dnf clean all
+# ARG ROCM_REPO="[rocm] \
+# name=ROCm Repository \
+# baseurl=https://repo.radeon.com/rocm/el9/7.2.4/main \
+# enabled=1 \
+# priority=50 \
+# gpgcheck=1 \
+# gpgkey=https://repo.radeon.com/rocm/rocm.gpg.key \
+# "
+# RUN echo $ROCM_REPO > /etc/yum.repos.d/rocm.repo
+
+ENV HIP_PLATFORM=nvidia
+RUN dnf install -y hip-runtime-nvidia hipcc-nvidia
+# hip-devel can't be installed alongside hip-runtime-nvidia/hipcc-nvidia: both
+# packages ship /opt/rocm-*/bin/hipcc, hipconfig, hipvars.pm with no
+# Obsoletes/Conflicts between them, so dnf refuses the transaction.
+# hip-devel also owns the CMake package config (hip-config.cmake,
+# FindHIP.cmake, hip-lang-config.cmake) that find_package(HIP) needs, in
+# addition to the headers, so we extract both from the RPM without letting
+# dnf touch the conflicting hipcc binaries.
+# NOTE: cpio pattern-matching a directory path (e.g. "./opt/.../hip") only
+# matches that exact archive entry (the dir stub), not files nested under it
+# -- GNU cpio (used here) does an exact/glob match on the full stored
+# pathname, unlike tar's prefix matching. Extract the whole RPM to a scratch
+# dir first, then cp -a the specific subtrees we need onto the real fs.
+RUN dnf download hip-devel --destdir=/tmp/hipdevel && \
+    mkdir -p /tmp/hipdevel/extract && \
+    (cd /tmp/hipdevel/extract && rpm2cpio /tmp/hipdevel/hip-devel-*.rpm | cpio -idm) && \
+    cp -a /tmp/hipdevel/extract/opt/rocm-7.2.4/include/hip/. /opt/rocm-7.2.4/include/hip/ && \
+    cp -a /tmp/hipdevel/extract/opt/rocm-7.2.4/lib/cmake/hip/. /opt/rocm-7.2.4/lib/cmake/hip/ && \
+    cp -a /tmp/hipdevel/extract/opt/rocm-7.2.4/lib/cmake/hip-lang/. /opt/rocm-7.2.4/lib/cmake/hip-lang/ && \
+    mkdir -p /opt/rocm-7.2.4/share/hip && \
+    cp -a /tmp/hipdevel/extract/opt/rocm-7.2.4/share/hip/. /opt/rocm-7.2.4/share/hip/ && \
+    rm -rf /tmp/hipdevel
+RUN dnf install -y hipsolver-devel hipblas-devel rocm-cmake
+
+ENV OFI_HOME=${INSTALL_DIR}/libfabric
+ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
+ENV HIP_HOME=/opt/rocm
+ENV CUDA_HOME=/usr/local/cuda
+ENV CUDA_STUBS=${CUDA_HOME}/lib64/stubs
+ENV PATH="${OFI_HOME}/bin:${HIP_HOME}/bin:${MPI_HOME}/bin:${CUDA_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${HIP_HOME}/lib:${MPI_HOME}/lib:${CUDA_HOME}/lib64:${CUDA_STUBS}:${LD_LIBRARY_PATH}"
+ENV CMAKE_PREFIX_PATH="${HIP_HOME}/lib/cmake:${HIP_HOME}/lib/cmake/hip:${CMAKE_PREFIX_PATH}"
+ENV NVCC_APPEND_FLAGS="-forward-unknown-to-host-compiler --expt-relaxed-constexpr"
+
+ARG HPLMXP_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/rocHPL-MxP \
+-DHPLMXP_MPI_DIR=${MPI_HOME} \
+-DHIP_PATH=${HIP_HOME} \
+-DCMAKE_BUILD_TYPE=Release \
+-DHPLMXP_VERBOSE_PRINT=ON \
+-DHPLMXP_PROGRESS_REPORT=ON \
+-DHPLMXP_DETAILED_TIMING=ON \
+-DCMAKE_VERBOSE_MAKEFILE=ON \
+${SRC_DIR}/rocHPL-MxP"
+
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
+
+WORKDIR ${SRC_DIR}/rocHPL-MxP
+RUN git checkout hipify
+
+RUN ls -R ${HIP_HOME}/lib/cmake ${HIP_HOME}/share
+RUN ldd ${HIP_HOME}/lib/libhipblas.so
+RUN ldd ${HIP_HOME}/lib/libhipsolver.so
+
+WORKDIR /tmp/hplmxp
+RUN cmake ${HPLMXP_FLAGS} && \
+    make && \
+    make install
+
+ENV PATH=${OPATH}
+ENV LD_LIBRARY_PATH=${OLIB}
+ENV CC=
+ENV CXX=
+ENV FC=
+
+WORKDIR /workspace
