@@ -7,24 +7,32 @@ setvar() {
     done
 }
 
+## FIND THIS DIRECTORY
+if [[ -z $ROOT_DIR ]]; then
+    THISFILE=${BASH_SOURCE[0]}
+    : ${THISFILE:=$0}
+
+    export ROOT_DIR=$(dirname $(realpath ${THISFILE}))
+fi
+
 # SET COMMAND LINE OPTIONS
 setvar "$@"
 
 : ${OMPI_VER:=5.0.8}
-: ${OSUMB_VER:=7.5.1}
+: ${OSUMB_VER:=7.5.2}
 : ${TYPE:=cpu}
-: ${INSTALL_DIR:=/usr/local}
+: ${INSTALL_DIR:=${ROOT_DIR}/install}
 : ${CUDA_HOME:=/usr/local/cuda}
+: ${ROCM_HOME:=/opt/rocm}
 : ${OFI_HOME:=/usr}
-: ${SRC_DIR:=/usr/local/src}
-: ${BUILD_DIR:=/usr/local/build}
+: ${SRC_DIR:=${ROOT_DIR}/src/common}
+: ${BUILD_DIR:=/tmp/build}
 : ${REBUILD:=false}
 
-export CUDA_HOME
+export CUDA_HOME ROCM_HOME
+export INSTALL_DIR+="/${TYPE}"
 
-export CC=gcc
-export CXX=g++
-export FC=gfortran
+export CC=gcc CXX=g++ FC=gfortran
 
 export CFLAGS="-w"
 export CXXFLAGS="-w"
@@ -44,27 +52,14 @@ if [[ $TYPE == 'nvidia' ]]; then
     OSUMB_FLAGS+=" --enable-cuda --with-cuda=${CUDA_HOME}"
     export CUDA_STUBS=${CUDA_HOME}/lib64/stubs
     export PATH="${CUDA_HOME}/bin:${PATH}"
-    libadd=${CUDA_HOME}/lib64
-    if [[ $INSTALL_DIR == '/usr/local' ]]; then
-        libadd+=":${CUDA_STUBS}"
-        OMPI_FLAGS+=" --with-cuda-libdir=${CUDA_STUBS}"
-    fi
-    export LD_LIBRARY_PATH="${libadd}:${LD_LIBRARY_PATH}"
-    export LIBRARY_PATH="${libadd}:${LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}"
 fi
 
 if [[ $TYPE == 'amd' ]]; then
-    export ROCM_HOME=/opt/rocm
     OMPI_FLAGS+=" --with-rocm=${ROCM_HOME} --enable-rocm"
     OSUMB_FLAGS+=" --with-rocm=${ROCM_HOME} --enable-rocm"
     export PATH="${ROCM_HOME}/bin:${PATH}"
-    libadd=${ROCM_HOME}/lib
-    # if [[ $INSTALL_DIR == '/usr/local' ]]; then
-    #     libadd+=":${CUDA_STUBS}"
-    #     export LDFLAGS="-Wl,-rpath,${CUDA_STUBS} -w"
-    # fi
-    export LD_LIBRARY_PATH="${libadd}:${LD_LIBRARY_PATH}"
-    export LIBRARY_PATH="${libadd}:${LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="${ROCM_HOME}/lib:${LD_LIBRARY_PATH}"
 fi
 
 if [[ (-d ${OMPI_INSTALL}) ]]; then
@@ -89,7 +84,7 @@ if [[ ! (-d ${OMPI_INSTALL}) ]]; then
     cd ${BUILD_DIR}/ompi-${OMPI_VER}-${TYPE}
 
     echo "${SRC_DIR}/ompi/configure $OMPI_FLAGS"
-    ${SRC_DIR}/ompi/configure $OMPI_FLAGS || (cat config.log && exit 1)
+    ${SRC_DIR}/ompi/configure $OMPI_FLAGS 
     make -j 16
     make -j 16 install
 fi
@@ -97,9 +92,7 @@ fi
 export MPI_HOME=${OMPI_INSTALL}
 export PATH="${MPI_HOME}/bin:${PATH}"
 export LD_LIBRARY_PATH="${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
-export CC=mpicc
-export CXX=mpicxx
-export FC=mpifort
+export CC=mpicc CXX=mpicxx FC=mpifort
 
 if [[ (-d ${OSUMB_INSTALL}) ]]; then
     if [[ $REBUILD == true ]]; then
@@ -112,9 +105,10 @@ fi
 if [[ ! (-d ${OSUMB_INSTALL}) ]]; then
     mkdir -p ${BUILD_DIR}/osumb-build-${OMPI_VER}-${TYPE}
     cd ${BUILD_DIR}/osumb-build-${OMPI_VER}-${TYPE}
-    OSU_CONFIGURE=${SRC_DIR}/osu-micro-benchmarks-${OSUMB_VER}/configure
+    tar xzf osu-micro-benchmarks-${OSUMB_VER}.tar.gz
+    OSU_CONFIGURE=./osu-micro-benchmarks-${OSUMB_VER}/configure
     echo "${OSU_CONFIGURE} $OSUMB_FLAGS"
-    ${OSU_CONFIGURE} ${OSUMB_FLAGS} || (cat config.log && exit 1)
+    ${OSU_CONFIGURE} ${OSUMB_FLAGS}
     make -j 16
     make -j 16 install
 fi

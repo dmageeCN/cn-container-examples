@@ -14,7 +14,7 @@ source $ROOT_DIR/util
 setvar "$@"
 
 : ${RESET_REPO:=false}
-# : ${CUDA_VER:=13.1.0_590.44.01}
+: ${OSUMB_VER:=7.5.2}
 
 ## Prefer SSH (git@github.com:) if the user has a working GitHub SSH key
 ## registered. `ssh -T git@github.com` never grants a shell, so a
@@ -33,18 +33,20 @@ fi
 ALL_SRC_DIR=${ROOT_DIR}/src
 
 ## URLS
-COMMON_URL="${gitprefix}open-mpi/ompi.git" ## ?? VERSION?. LIBFABRIC ??
-HPLMXP_URL="${gitprefix}dmageeCN/rocHPL-MxP.git"
-BRANSON_URL="${gitprefix}lanl/branson.git"
-HPCG_URL="${gitprefix}hpcg-benchmark/hpcg.git" ## ?? GPU ENABLED VERSION.
-GROMACS_URL="${gitprefix}gromacs/gromacs.git"
-PARTHENON_URL="${gitprefix}parthenon-hpc-lab/parthenon.git"
+## Associative array: test-name -> space-separated list of source URLs.
+## To add a second (or third...) URL for a test, just append with +=" ...".
+declare -A URLS
+URLS[common]="${gitprefix}open-mpi/ompi.git https://mvapich.cse.ohio-state.edu/download/mvapich/osu-micro-benchmarks-${OSU_VER}.tar.gz" ## ?? VERSION?. LIBFABRIC ??
+URLS[hplmxp]="${gitprefix}dmageeCN/rocHPL-MxP.git"
+URLS[branson]="${gitprefix}lanl/branson.git"
+URLS[hpcg]="${gitprefix}hpcg-benchmark/hpcg.git" ## ?? GPU ENABLED VERSION.
+URLS[gromacs]="${gitprefix}gromacs/gromacs.git"
+URLS[parthenon]="${gitprefix}parthenon-hpc-lab/parthenon.git"
 
-for k in common hplmxp branson hpcg gromacs parthenon; do
+for k in "${!URLS[@]}"; do
     mkdir -p ${ALL_SRC_DIR}/${k}
     cd ${ALL_SRC_DIR}/$k
-    varname="${k^^}_URL"
-    get_pkgs "${!varname}"
+    get_pkgs ${URLS[$k]} # Intentionally unquoted
 done
 
 #SETUP venv
