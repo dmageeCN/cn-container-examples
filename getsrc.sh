@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## FIND THIS DIRECTORY
 if [[ -z $ROOT_DIR ]]; then

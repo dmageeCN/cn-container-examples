@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 setvar() {
     while [[ $# -gt 0 ]]; do

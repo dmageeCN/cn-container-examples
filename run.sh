@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## FIND THIS DIRECTORY
 THISFILE=${BASH_SOURCE[0]}

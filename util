@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## util is only ever sourced by build.sh/run.sh (root dispatchers) or by an
 ## examples/<test>/*.sh script running standalone. Either caller guarantees

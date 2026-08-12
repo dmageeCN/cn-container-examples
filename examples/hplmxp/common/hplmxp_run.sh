@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Launch as apptainer:
 # ctr_image=image_files/hpl-mxp-amd_v2.0.sif
@@ -35,8 +35,6 @@ setvar "$@"
 : ${Ni:=32000}
 : ${NBi:=640}
 : ${PPN:=8}
-
-export FI_PROVIDER=opx
 
 # Set MPI parameters
 export OMPI_MCA_mtl=ofi
