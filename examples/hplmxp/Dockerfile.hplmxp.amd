@@ -1,0 +1,51 @@
+FROM cn-amd:v2.0
+
+ARG TEST_NAME=hplmxp
+ARG REPO_NAME=rocHPL-MxP
+# COPY src/common/ ${SRC_DIR}/
+ARG SRC_DIR=/usr/local/src
+ARG BUILD_DIR=/usr/local/build
+ARG INSTALL_DIR=/usr/local
+ARG OMPI_VER=5.0.8
+ARG ROOT_HOME=/root
+ARG OPATH=${PATH}
+ARG OLIB=${LD_LIBRARY_PATH}
+
+COPY src/${TEST_NAME}/ ${SRC_DIR}/
+
+RUN dnf clean all
+
+ENV OFI_HOME=${INSTALL_DIR}/libfabric
+ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
+ENV ROCM_HOME=/opt/rocm
+ENV PATH="${OFI_HOME}/bin:${ROCM_HOME}/bin:${MPI_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${ROCM_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
+
+ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
+    -DHPLMXP_MPI_DIR=${MPI_HOME} \
+    -DROCM_PATH=${ROCM_HOME} \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DHPLMXP_VERBOSE_PRINT=ON \
+    -DHPLMXP_PROGRESS_REPORT=ON \
+    -DHPLMXP_DETAILED_TIMING=ON \
+    ${SRC_DIR}/${REPO_NAME}"
+
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
+
+WORKDIR ${SRC_DIR}/rocHPL-MxP
+RUN git checkout main
+
+WORKDIR /tmp/build
+RUN cmake ${CMAKE_FLAGS} && \
+    make -j 16 && \
+    make -j 16 install
+
+ENV PATH=${OPATH}
+ENV LD_LIBRARY_PATH=${OLIB}
+ENV CC=
+ENV CXX=
+ENV FC=
+
+WORKDIR /workspace

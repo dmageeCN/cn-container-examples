@@ -1,0 +1,53 @@
+FROM cn-nvidia:v2.0
+
+ARG TEST_NAME=hpcg
+ARG REPO_NAME=rocHPCG
+# COPY src/common/ ${SRC_DIR}/
+ARG SRC_DIR=/usr/local/src
+ARG BUILD_DIR=/usr/local/build
+ARG INSTALL_DIR=/usr/local
+ARG OMPI_VER=5.0.8
+ARG ROOT_HOME=/root
+ARG OPATH=${PATH}
+ARG OLIB=${LD_LIBRARY_PATH}
+
+COPY src/${TEST_NAME}/ ${SRC_DIR}/
+
+RUN dnf clean all
+
+ENV OFI_HOME=${INSTALL_DIR}/libfabric
+ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
+ENV CUDA_HOME=/usr/local/cuda
+ENV CUDA_STUBS=${CUDA_HOME}/lib64/stubs
+ENV PATH="${OFI_HOME}/bin:${MPI_HOME}/bin:${CUDA_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${MPI_HOME}/lib:${CUDA_HOME}/lib64:${CUDA_STUBS}:${LD_LIBRARY_PATH}"
+ENV NVCC_APPEND_FLAGS="-forward-unknown-to-host-compiler --expt-relaxed-constexpr"
+
+ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
+-DHPCG_MPI_DIR=${MPI_HOME} \
+-DCUDAToolkit_ROOT=${CUDA_HOME} \
+-DGPU_AWARE_MPI=ON \
+-DCMAKE_BUILD_TYPE=Release \
+-DOPT_NVTX=ON \
+-DCMAKE_CUDA_ARCHITECTURES=90 \
+${SRC_DIR}/${REPO_NAME}"
+
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
+
+WORKDIR ${SRC_DIR}/${REPO_NAME}
+RUN git checkout cuda_port
+
+WORKDIR /tmp/build
+RUN cmake ${CMAKE_FLAGS} && \
+    make && \
+    make install
+
+ENV PATH=${OPATH}
+ENV LD_LIBRARY_PATH=${OLIB}
+ENV CC=
+ENV CXX=
+ENV FC=
+
+WORKDIR /workspace

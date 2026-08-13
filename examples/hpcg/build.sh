@@ -28,7 +28,7 @@ setvar "$@"
 
 export BASE_LIB VER
 
-SRC=${SRC_DIR}/rocHPL-MxP
+SRC=${SRC_DIR}/rocHPCG
 cd $SRC
 
 type=cpu
@@ -38,8 +38,8 @@ if rocm-smi &> /dev/null; then
     export PATH=${GPU_HOME}/bin:${PATH}
     export LD_LIBRARY_PATH=${GPU_HOME}/lib:${LD_LIBRARY_PATH}
     gpu_arch=$(get_gpu_arch $type)
-    git checkout main
-    CMAKE_FLAGS=" -DROCM_PATH=${ROCM_HOME}"
+    git checkout develop
+    CMAKE_FLAGS="-DROCM_PATH=${ROCM_HOME} -DOPT_ROCTX=ON"
 fi
 if nvidia-smi &> /dev/null; then
     type=nvidia
@@ -48,21 +48,21 @@ if nvidia-smi &> /dev/null; then
     export LD_LIBRARY_PATH=${GPU_HOME}/lib64:${LD_LIBRARY_PATH}
     gpu_arch=$(get_gpu_arch $type)
     git checkout cuda_port
-    CMAKE_FLAGS=" -DCMAKE_CUDA_ARCHITECTURES=${gpu_arch}"
+    CMAKE_FLAGS="-DCUDAToolkit_ROOT=${GPU_HOME} -DOPT_NVTX=ON -DGPU_AWARE_MPI=ON "
+    CMAKE_FLAGS+="-DCMAKE_CUDA_ARCHITECTURES=${gpu_arch}"
     export NVCC_APPEND_FLAGS="-forward-unknown-to-host-compiler --expt-relaxed-constexpr"
 fi
 
-CMAKE_FLAGS+="-DCMAKE_BUILD_TYPE=Release -DHPLMXP_VERBOSE_PRINT=ON"
-CMAKE_FLAGS+=" -DHPLMXP_PROGRESS_REPORT=ON -DHPLMXP_DETAILED_TIMING=ON"
+CMAKE_FLAGS+=" -DCMAKE_BUILD_TYPE=Release"
 
 export GPU_HOME
 set_paths $type
-export HPLMXP_HOME="${HOST_INSTALL}/rocHPL-MxP-${BASE_LIB}"
-CMAKE_FLAGS+=" -DCMAKE_INSTALL_PREFIX=${HPLMXP_HOME} -DHPLMXP_MPI_DIR=${MPI_HOME}"
+export TEST_HOME="${HOST_INSTALL}/rocHPCG-${BASE_LIB}"
+CMAKE_FLAGS+=" -DCMAKE_INSTALL_PREFIX=${TEST_HOME} -DHPCG_MPI_DIR=${MPI_HOME}"
 
 export CC=mpicc CXX=mpicxx FC=mpifort
 
-BUILD_DIR=/tmp/hplmxp-${BASE_LIB}-${type}
+BUILD_DIR=/tmp/${NAME}-${BASE_LIB}-${type}
 mkcd $BUILD_DIR
 echo "--PATH--"
 empath $PATH

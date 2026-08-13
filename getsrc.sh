@@ -38,8 +38,10 @@ ALL_SRC_DIR=${ROOT_DIR}/src
 declare -A URLS
 URLS[common]="${gitprefix}open-mpi/ompi.git https://mvapich.cse.ohio-state.edu/download/mvapich/osu-micro-benchmarks-${OSU_VER}.tar.gz" ## ?? VERSION?. LIBFABRIC ??
 URLS[hplmxp]="${gitprefix}dmageeCN/rocHPL-MxP.git"
+URLS[hpl]="${gitprefix}dmageeCN/rocHPL.git"
 URLS[branson]="${gitprefix}lanl/branson.git"
 URLS[hpcg]="${gitprefix}hpcg-benchmark/hpcg.git" ## ?? GPU ENABLED VERSION.
+URLS[hpcg]="${gitprefix}dmageeCN/rocHPCG.git"
 URLS[gromacs]="${gitprefix}gromacs/gromacs.git"
 URLS[parthenon]="${gitprefix}parthenon-hpc-lab/parthenon.git"
 

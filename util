@@ -106,3 +106,36 @@ get_gpu_arch() {
         exit 1
     fi
 }
+
+gpu_arch_type() {
+    TYPE=cpu
+    if nvidia-smi &> /dev/null; then
+        TYPE=nvidia
+    elif rocm-smi &> /dev/null; then
+        TYPE=amd
+    fi
+    export TYPE
+}
+
+gpu_make_flags() {
+    TYPE=cpu
+    if rocm-smi &> /dev/null; then
+        TYPE=amd
+        GPU_HOME=/opt/rocm
+        export PATH=${GPU_HOME}/bin:${PATH}
+        export LD_LIBRARY_PATH=${GPU_HOME}/lib:${LD_LIBRARY_PATH}
+        gpu_arch=$(get_gpu_arch $type)
+        CMAKE_FLAGS="-DROCM_PATH=${ROCM_HOME}"
+    fi
+    if nvidia-smi &> /dev/null; then
+        TYPE=nvidia
+        GPU_HOME=/nfs-scratch/sw/cuda/13.1.0_590.44.01
+        export PATH=${GPU_HOME}/bin:${PATH}
+        export LD_LIBRARY_PATH=${GPU_HOME}/lib64:${LD_LIBRARY_PATH}
+        gpu_arch=$(get_gpu_arch $type)
+        CMAKE_FLAGS+="-DCMAKE_CUDA_ARCHITECTURES=${gpu_arch}"
+        export NVCC_APPEND_FLAGS="-forward-unknown-to-host-compiler --expt-relaxed-constexpr"
+    fi
+
+    export GPU_HOME TYPE CMAKE_FLAGS
+}
