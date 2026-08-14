@@ -1,6 +1,6 @@
 # Project Overview
 
-Build containers for CN5000 machines.
+Build APP containers CN5000 machines. Using the base cn containers (cn-cpu, cn-nvidia, cn-amd)
 
 ## Directory structure
 

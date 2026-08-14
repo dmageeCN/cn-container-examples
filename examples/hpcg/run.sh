@@ -24,7 +24,7 @@ source $ROOT_DIR/util
 setvar "$@"
 
 : ${PPN:=8}
-: ${HPLARGS:=''}
+: ${TESTARGS:=''}
 : ${BASE_LIB:='rocm'}
 : ${NNODES:=$SLURM_NNODES}
 : ${VER:=2}
@@ -44,10 +44,12 @@ mpi_args_2='--mca mtl_ofi_provider_include opx --mca pml cm --mca mtl ofi'
 mpi_args_2+=' -x FI_PROVIDER=opx'
 ctr_args="apptainer exec --bind /lib/modules,${TEST_DIR}/common:/loc_mnt"
 
-hplargs=$(echo ${HPLARGS} | tr ';' ' ')
+TESTARGS=$(echo ${TESTARGS} | tr ';' ' ')
 Pi=$(pq_grid $NPROCS)
 Qi=$(( NPROCS/Pi ))
-HPLMXARGS="-P ${Pi} -Q ${Qi} -N ${Ni} --NB ${NBi} ${hplargs}"
+
+# ./rochpcg 560 280 280 1860 --dev=1 PER PROC
+# ./run_rochpl -P 1 -Q 1 -N 45312
 
 type=cpu
 if rocm-smi &> /dev/null; then
@@ -65,10 +67,10 @@ fi
 
 export GPU_HOME
 set_paths $type
-export HPLMXP_HOME="${HOST_INSTALL}/rocHPL-MxP-${BASE_LIB}"
-export HOSTEXEC="${HPLMXP_HOME}/run_rochplmxp"
+export TEST_HOME="${HOST_INSTALL}/rocHPCG-${type}"
+export HOSTEXEC="${TEST_HOME}/rochpcg"
 
-ctr_wrapper='/loc_mnt/hplmxp_run.sh'
+ctr_wrapper='/loc_mnt/hpcg_run.sh'
 
 exec_tests() {
     echo "FI_OPX_HFISVC=${FI_OPX_HFISVC}"

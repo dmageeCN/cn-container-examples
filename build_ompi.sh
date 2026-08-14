@@ -30,7 +30,7 @@ setvar "$@"
 : ${REBUILD:=false}
 
 export CUDA_HOME ROCM_HOME
-export INSTALL_DIR+="/${TYPE}"
+export INSTALL_DIR+="${ROOT_DIR}/install"
 
 export CC=gcc CXX=g++ FC=gfortran
 
@@ -39,10 +39,10 @@ export CXXFLAGS="-w"
 export FCFLAGS="-w"
 export LDFLAGS="-Wl,--enable-new-dtags -w"
 
-OMPI_INSTALL="${INSTALL_DIR}/openmpi-${OMPI_VER}"
+OMPI_INSTALL="${INSTALL_DIR}/openmpi-${OMPI_VER}-${TYPE}"
 OSUMB_INSTALL="${INSTALL_DIR}/osumb_ompi-${OMPI_VER}"
 OMPI_FLAGS="--with-ofi=${OFI_HOME} --prefix=${OMPI_INSTALL} "
-OMPI_FLAGS+="--enable-orterun-prefix-by-default --with-psm2 "
+OMPI_FLAGS+="--enable-orterun-prefix-by-default "
 OMPI_FLAGS+="--with-pmix --without-xpmem "
 OMPI_FLAGS+="--enable-mpi1-compatibility"
 OSUMB_FLAGS="--prefix=${OSUMB_INSTALL}"

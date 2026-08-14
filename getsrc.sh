@@ -36,7 +36,7 @@ ALL_SRC_DIR=${ROOT_DIR}/src
 ## Associative array: test-name -> space-separated list of source URLs.
 ## To add a second (or third...) URL for a test, just append with +=" ...".
 declare -A URLS
-URLS[common]="${gitprefix}open-mpi/ompi.git https://mvapich.cse.ohio-state.edu/download/mvapich/osu-micro-benchmarks-${OSU_VER}.tar.gz" ## ?? VERSION?. LIBFABRIC ??
+URLS[common]="${gitprefix}open-mpi/ompi.git https://mvapich.cse.ohio-state.edu/download/mvapich/osu-micro-benchmarks-${OSUMB_VER}.tar.gz" ## ?? VERSION?. LIBFABRIC ??
 URLS[hplmxp]="${gitprefix}dmageeCN/rocHPL-MxP.git"
 URLS[hpl]="${gitprefix}dmageeCN/rocHPL.git"
 URLS[branson]="${gitprefix}lanl/branson.git"

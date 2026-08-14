@@ -57,12 +57,12 @@ CMAKE_FLAGS+=" -DCMAKE_BUILD_TYPE=Release"
 
 export GPU_HOME
 set_paths $type
-export TEST_HOME="${HOST_INSTALL}/rocHPCG-${BASE_LIB}"
+export TEST_HOME="${HOST_INSTALL}/${NAME}-${type}"
 CMAKE_FLAGS+=" -DCMAKE_INSTALL_PREFIX=${TEST_HOME} -DHPCG_MPI_DIR=${MPI_HOME}"
 
 export CC=mpicc CXX=mpicxx FC=mpifort
 
-BUILD_DIR=/tmp/${NAME}-${BASE_LIB}-${type}
+BUILD_DIR=/tmp/${NAME}-${type}
 mkcd $BUILD_DIR
 echo "--PATH--"
 empath $PATH
