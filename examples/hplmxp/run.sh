@@ -25,47 +25,39 @@ setvar "$@"
 
 : ${PPN:=8}
 : ${HPLARGS:=''}
-: ${BASE_LIB:='rocm'}
 : ${NNODES:=$SLURM_NNODES}
 : ${VER:=2}
-: ${Ni:=32000}
-: ${NBi:=640}
+: ${NPERGPU:=140000}
+: ${NBi:=4096}
 
-export BASE_LIB VER
+export VER
+
+## detect_gpu (called by gpu_run_env) is a no-op if TYPE is already exported
+## by the root run.sh dispatcher, so the *-smi probes only ever run once.
+## Called early since TYPE feeds OUTFILE's name below.
+gpu_run_env
 
 NPROCS=$(( PPN*NNODES ))
 rslt_dir=$RESULTS_DIR
 mkdir -p $rslt_dir
 export THEDATE=$(date +'%m-%d_%H-%M')
-OUTFILE="$rslt_dir/${NAME}-${BASE_LIB}-${THEDATE}.out"
+OUTFILE="$rslt_dir/${NAME}-${TYPE}-${THEDATE}.out"
 
 mpi_args="-np ${NPROCS} --map-by ppr:${PPN}:node --report-bindings"
 mpi_args_2='--mca mtl_ofi_provider_include opx --mca pml cm --mca mtl ofi'
 mpi_args_2+=' -x FI_PROVIDER=opx'
 ctr_args="apptainer exec --bind /lib/modules,${TEST_DIR}/common:/loc_mnt"
+ctr_args+="${CTR_GPU_ARGS}"
 
 hplargs=$(echo ${HPLARGS} | tr ';' ' ')
 Pi=$(pq_grid $NPROCS)
 Qi=$(( NPROCS/Pi ))
+
+Ni=$($TEST_DIR/hplmxp_size.py $NPROCS $NPERGPU)
 HPLMXARGS="-P ${Pi} -Q ${Qi} -N ${Ni} --NB ${NBi} ${hplargs}"
 
-type=cpu
-if rocm-smi &> /dev/null; then
-    ctr_args+=" --rocm"
-    type=amd
-    GPU_HOME=/opt/rocm
-    export LD_LIBRARY_PATH=${GPU_HOME}/lib:${LD_LIBRARY_PATH}
-fi
-if nvidia-smi &> /dev/null; then
-    ctr_args+=" --nv --bind /dev/hfi1_gdr,/dev/gdrdrv"
-    type=nvidia
-    GPU_HOME=/nfs-scratch/sw/cuda/13.1.0_590.44.01
-    export LD_LIBRARY_PATH=${GPU_HOME}/lib64:${LD_LIBRARY_PATH}
-fi
-
-export GPU_HOME
-set_paths $type
-export HPLMXP_HOME="${HOST_INSTALL}/rocHPL-MxP-${BASE_LIB}"
+set_paths $TYPE
+export HPLMXP_HOME="${HOST_INSTALL}/rocHPL-MxP"
 export HOSTEXEC="${HPLMXP_HOME}/run_rochplmxp"
 
 ctr_wrapper='/loc_mnt/hplmxp_run.sh'

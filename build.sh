@@ -12,19 +12,18 @@ export NAME
 export TEST_DIR=${ROOT_DIR}/examples/${NAME}
 VER=2
 
-type=cpu
-if nvidia-smi &> /dev/null; then
-    type=nvidia
-fi
-if rocm-smi &> /dev/null; then
-    type=amd
-fi
+source $ROOT_DIR/util
 
-DOCKERFILE=$TEST_DIR/Dockerfile.${NAME}.${type}
-CNTR_NAME=cn-${NAME}-${type}
+## Detect the GPU once here and export TYPE so every downstream script
+## (this file, examples/<test>/build.sh) reuses it instead of re-running
+## the slow *-smi probes.
+detect_gpu
+
+DOCKERFILE=$TEST_DIR/Dockerfile.${NAME}.${TYPE}
+CNTR_NAME=cn-${NAME}-${TYPE}
 
 if [[ ! (-f $DOCKERFILE) ]]; then
-    echo "NO BUILD AVAILABLE FOR $NAME of type ${type}"
+    echo "NO BUILD AVAILABLE FOR $NAME of type ${TYPE}"
     exit 1
 fi
 

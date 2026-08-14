@@ -25,49 +25,39 @@ setvar "$@"
 
 : ${PPN:=8}
 : ${TESTARGS:=''}
-: ${BASE_LIB:='rocm'}
 : ${NNODES:=$SLURM_NNODES}
 : ${VER:=2}
-: ${Ni:=32000}
-: ${NBi:=640}
+: ${NXi:=560}
+: ${NYi:=280}
+: ${NZi:=280}
+: ${RTi:=60}
 
-export BASE_LIB VER
+export VER
+
+## detect_gpu (called by gpu_run_env) is a no-op if TYPE is already exported
+## by the root run.sh dispatcher, so the *-smi probes only ever run once.
+## Called early since TYPE feeds OUTFILE's name below.
+gpu_run_env
 
 NPROCS=$(( PPN*NNODES ))
 rslt_dir=$RESULTS_DIR
 mkdir -p $rslt_dir
 export THEDATE=$(date +'%m-%d_%H-%M')
-OUTFILE="$rslt_dir/${NAME}-${BASE_LIB}-${THEDATE}.out"
+OUTFILE="$rslt_dir/${NAME}-${TYPE}-${THEDATE}.out"
 
 mpi_args="-np ${NPROCS} --map-by ppr:${PPN}:node --report-bindings"
 mpi_args_2='--mca mtl_ofi_provider_include opx --mca pml cm --mca mtl ofi'
 mpi_args_2+=' -x FI_PROVIDER=opx'
 ctr_args="apptainer exec --bind /lib/modules,${TEST_DIR}/common:/loc_mnt"
+ctr_args+="${CTR_GPU_ARGS}"
 
-TESTARGS=$(echo ${TESTARGS} | tr ';' ' ')
-Pi=$(pq_grid $NPROCS)
-Qi=$(( NPROCS/Pi ))
+testargs=$(echo ${TESTARGS} | tr ';' ' ')
+## rochpcg takes nx/ny/nz/runtime positionally (per-rank local problem size);
+## no -P/-Q grid arg -- rank-to-GPU mapping is automatic (comm_rank % ndevs).
+HPCGARGS="${NXi} ${NYi} ${NZi} ${RTi} ${testargs}"
 
-# ./rochpcg 560 280 280 1860 --dev=1 PER PROC
-# ./run_rochpl -P 1 -Q 1 -N 45312
-
-type=cpu
-if rocm-smi &> /dev/null; then
-    ctr_args+=" --rocm"
-    type=amd
-    GPU_HOME=/opt/rocm
-    export LD_LIBRARY_PATH=${GPU_HOME}/lib:${LD_LIBRARY_PATH}
-fi
-if nvidia-smi &> /dev/null; then
-    ctr_args+=" --nv --bind /dev/hfi1_gdr,/dev/gdrdrv"
-    type=nvidia
-    GPU_HOME=/nfs-scratch/sw/cuda/13.1.0_590.44.01
-    export LD_LIBRARY_PATH=${GPU_HOME}/lib64:${LD_LIBRARY_PATH}
-fi
-
-export GPU_HOME
-set_paths $type
-export TEST_HOME="${HOST_INSTALL}/rocHPCG-${type}"
+set_paths $TYPE
+export TEST_HOME="${HOST_INSTALL}/${NAME}-${TYPE}"
 export HOSTEXEC="${TEST_HOME}/rochpcg"
 
 ctr_wrapper='/loc_mnt/hpcg_run.sh'
@@ -76,12 +66,12 @@ exec_tests() {
     echo "FI_OPX_HFISVC=${FI_OPX_HFISVC}"
     echo "========== ++++++ ========="
     echo "------- HOST ----------"
-    echo "mpirun ${mpi_args} ${mpi_args_2} ${HOSTEXEC} ${HPLMXARGS}"
-    mpirun ${mpi_args} ${mpi_args_2} ${HOSTEXEC} ${HPLMXARGS}
+    echo "mpirun ${mpi_args} ${mpi_args_2} ${HOSTEXEC} ${HPCGARGS}"
+    mpirun ${mpi_args} ${mpi_args_2} ${HOSTEXEC} ${HPCGARGS}
     echo "========== ++++++ ========="
     echo "------- CONTAINER ----------"
-    echo "mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPLMXARGS}"
-    mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} #${HPLMXARGS}
+    echo "mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPCGARGS}"
+    mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} #${HPCGARGS}
 }
 
 echo "--- __ NO HFISVC" | tee $OUTFILE
@@ -99,5 +89,5 @@ grep Final $OUTFILE
 ## POST PROC
 
 ## OLD CMD
-# echo "mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPLMXARGS}" | tee $OUTFILE
-# mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPLMXARGS} | tee -a $OUTFILE
+# echo "mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPCGARGS}" | tee $OUTFILE
+# mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPCGARGS} | tee -a $OUTFILE
