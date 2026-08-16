@@ -40,7 +40,7 @@ export FCFLAGS="-w"
 export LDFLAGS="-Wl,--enable-new-dtags -w"
 
 OMPI_INSTALL="${INSTALL_DIR}/openmpi-${OMPI_VER}-${TYPE}"
-OSUMB_INSTALL="${INSTALL_DIR}/osumb_ompi-${OMPI_VER}"
+OSUMB_INSTALL="${INSTALL_DIR}/osumb_ompi-${OMPI_VER}-${TYPE}"
 OMPI_FLAGS="--with-ofi=${OFI_HOME} --prefix=${OMPI_INSTALL} "
 OMPI_FLAGS+="--enable-orterun-prefix-by-default "
 OMPI_FLAGS+="--with-pmix --without-xpmem "

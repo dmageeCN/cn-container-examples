@@ -88,7 +88,15 @@ set_paths() {
     type=$1
     image_str="cn-${type}-${NAME}"
     export HOST_INSTALL=${ROOT_DIR}/install/${type}
-    export OFI_HOME=${HOST_INSTALL}/libfabric
+    ## Default to the system libfabric (/usr, whatever dnf/apt installed --
+    ## this repo is public, so most users won't have access to Cornelis'
+    ## internal libfabric build and will rely on their distro's OPX-enabled
+    ## package). Callers who DO have access to a custom libfabric build
+    ## (e.g. installed to HOST_INSTALL/libfabric-${type}) can override this
+    ## from the command line: OFI_HOME=... (setvar exports it before
+    ## set_paths runs, so the default below only applies if it's still unset).
+    : ${OFI_HOME:=/usr}
+    export OFI_HOME
     export MPI_HOME=${HOST_INSTALL}/openmpi-5.0.8
 
     export PATH=${MPI_HOME}/bin:${OFI_HOME}/bin:$PATH
@@ -107,19 +115,57 @@ get_gpu_arch() {
     fi
 }
 
-## detect_gpu sets/exports TYPE (cpu|amd|nvidia). The *-smi calls are slow, so
-## this is a no-op if TYPE is already set/exported by a caller earlier in the
-## process tree (e.g. the root build.sh/run.sh dispatcher).
+## detect_gpu sets/exports TYPE (cpu|amd|nvidia).
+##
+## - If TYPE was already validated earlier in this process tree (TYPE_VALIDATED
+##   is set, e.g. by the root build.sh/run.sh dispatcher or an earlier call in
+##   this same script), this is a no-op -- the slow *-smi calls only ever run
+##   once per invocation.
+## - If TYPE was set explicitly (by the user, e.g. `TYPE=nvidia` on the command
+##   line via setvar) but not yet validated, verify it's actually available on
+##   this hardware and hard-error if not (e.g. TYPE=nvidia with no NVIDIA GPU).
+##   TYPE=cpu is always valid (that's how you force a CPU-only run on a GPU
+##   node). This makes an explicit, incompatible TYPE request fail loudly
+##   instead of silently running the wrong code path.
+## - If TYPE was not set at all, auto-detect it. This path can never error:
+##   it prefers whichever GPU vendor's *-smi succeeds, and falls back to cpu.
 detect_gpu() {
     if [[ -n $TYPE ]]; then
+        if [[ -n $TYPE_VALIDATED ]]; then
+            return 0
+        fi
+        case $TYPE in
+            nvidia )
+                if ! nvidia-smi &> /dev/null; then
+                    echo "ERROR: TYPE=nvidia was requested but no NVIDIA GPU detected." >&2
+                    exit 1
+                fi
+                ;;
+            amd )
+                if ! rocm-smi &> /dev/null; then
+                    echo "ERROR: TYPE=amd was requested but no AMD GPU detected." >&2
+                    exit 1
+                fi
+                ;;
+            cpu )
+                : # always valid -- e.g. forcing a CPU-only run on a GPU node
+                ;;
+            * )
+                echo "ERROR: unknown TYPE=${TYPE} (expected cpu, amd, or nvidia)." >&2
+                exit 1
+                ;;
+        esac
+        export TYPE_VALIDATED=1
         return 0
     fi
+
     export TYPE=cpu
     if rocm-smi &> /dev/null; then
         export TYPE=amd
     elif nvidia-smi &> /dev/null; then
         export TYPE=nvidia
     fi
+    export TYPE_VALIDATED=1
 }
 
 ## gpu_build_env sets up GPU_HOME/PATH/LD_LIBRARY_PATH/GPU_ARCH and seeds
@@ -130,14 +176,17 @@ gpu_build_env() {
     CMAKE_FLAGS=""
     case $TYPE in
         amd )
-            export GPU_HOME=/opt/rocm
+            : ${GPU_HOME:=/opt/rocm}
+            export GPU_HOME
             export PATH=${GPU_HOME}/bin:${PATH}
             export LD_LIBRARY_PATH=${GPU_HOME}/lib:${LD_LIBRARY_PATH}
             export GPU_ARCH=$(get_gpu_arch $TYPE)
             CMAKE_FLAGS="-DROCM_PATH=${ROCM_HOME}"
             ;;
         nvidia )
-            export GPU_HOME=/nfs-scratch/sw/cuda/13.1.0_590.44.01
+            # /nfs-scratch/sw/cuda/13.1.0_590.44.01
+            : ${GPU_HOME:=/usr/local/cuda}
+            export GPU_HOME
             export PATH=${GPU_HOME}/bin:${PATH}
             export LD_LIBRARY_PATH=${GPU_HOME}/lib64:${LD_LIBRARY_PATH}
             export GPU_ARCH=$(get_gpu_arch $TYPE)
@@ -158,12 +207,14 @@ gpu_run_env() {
     case $TYPE in
         amd )
             CTR_GPU_ARGS=" --rocm"
-            export GPU_HOME=/opt/rocm
+            : ${GPU_HOME:=/opt/rocm}
+            export GPU_HOME
             export LD_LIBRARY_PATH=${GPU_HOME}/lib:${LD_LIBRARY_PATH}
             ;;
         nvidia )
             CTR_GPU_ARGS=" --nv --bind /dev/hfi1_gdr,/dev/gdrdrv"
-            export GPU_HOME=/nfs-scratch/sw/cuda/13.1.0_590.44.01
+            : ${GPU_HOME:=/usr/local/cuda}
+            export GPU_HOME
             export LD_LIBRARY_PATH=${GPU_HOME}/lib64:${LD_LIBRARY_PATH}
             ;;
     esac
