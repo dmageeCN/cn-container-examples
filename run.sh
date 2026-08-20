@@ -12,6 +12,7 @@ export NAME
 export TEST_DIR=${ROOT_DIR}/examples/${NAME}
 
 source $ROOT_DIR/util
+setvar "$@"
 
 ## Detect the GPU once here and export TYPE so every downstream script
 ## (examples/<test>/run.sh) reuses it instead of re-running the slow
