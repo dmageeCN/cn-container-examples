@@ -32,6 +32,8 @@ fi
 : ${NYi:=280}
 : ${NZi:=280}
 : ${RTi:=60}
+: ${HFISVC:=1}
+
 
 export VER
 
@@ -43,45 +45,28 @@ gpu_run_env
 NPROCS=$(( PPN*NNODES ))
 rslt_dir=$RESULTS_DIR
 mkdir -p $rslt_dir
-export THEDATE=$(date +'%m-%d_%H-%M')
 OUTFILE="$rslt_dir/${NAME}-${TYPE}-${THEDATE}.out"
 
 mpi_args="-np ${NPROCS} --map-by ppr:${PPN}:node --report-bindings"
-mpi_args_2='--mca mtl_ofi_provider_include opx --mca pml cm --mca mtl ofi'
-mpi_args_2+=' -x FI_PROVIDER=opx'
 ctr_args="apptainer exec --bind /lib/modules,${TEST_DIR}/common:/loc_mnt"
 ctr_args+="${CTR_GPU_ARGS}"
 
-testargs=$(echo ${TESTARGS} | tr ';' ' ')
+# testargs=$(echo ${TESTARGS} | tr ';' ' ')
 ## rochpcg takes nx/ny/nz/runtime positionally (per-rank local problem size);
 ## no -P/-Q grid arg -- rank-to-GPU mapping is automatic (comm_rank % ndevs).
-HPCGARGS="${NXi} ${NYi} ${NZi} ${RTi} ${testargs}"
+HPCGARGS="NXi=${NXi} NYi=${NYi} NZi=${NZi} RTi=${RTi}" # ${testargs}"
 
 set_paths $TYPE
-export TEST_HOME="${HOST_INSTALL}/${NAME}-${TYPE}"
-export HOSTEXEC="${TEST_HOME}/rochpcg"
+export FI_OPX_HFISVC=$HFISVC
 
 ctr_wrapper='/loc_mnt/hpcg_run.sh'
 
 exec_tests() {
-    echo "FI_OPX_HFISVC=${FI_OPX_HFISVC}"
-    echo "========== ++++++ ========="
-    echo "------- HOST ----------"
-    echo "mpirun ${mpi_args} ${mpi_args_2} ${HOSTEXEC} ${HPCGARGS}"
-    mpirun ${mpi_args} ${mpi_args_2} ${HOSTEXEC} ${HPCGARGS}
     echo "========== ++++++ ========="
     echo "------- CONTAINER ----------"
     echo "mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPCGARGS}"
-    mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} #${HPCGARGS}
+    mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPCGARGS}
 }
-
-echo "--- __ NO HFISVC" | tee $OUTFILE
-
-exec_tests | tee -a $OUTFILE
-
-echo "--- __ YES HFISVC" | tee -a $OUTFILE
-
-export FI_OPX_HFISVC=1
 
 exec_tests | tee -a $OUTFILE
 
