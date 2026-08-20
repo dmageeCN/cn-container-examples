@@ -103,6 +103,10 @@ set_paths() {
     export PATH=${MPI_HOME}/bin:${OFI_HOME}/bin:$PATH
     export LD_LIBRARY_PATH=${MPI_HOME}/lib:${OFI_HOME}/lib:$LD_LIBRARY_PATH
     export CTR_IMAGE="${IMAGE_DIR}/${image_str}_v${VER}.sif"
+    if [[ ! (-f $CTR_IMAGE) ]]; then
+        echo "There is no image for ${NAME} of this type=${TYPE}."
+        exit 1
+    fi
 }
 
 get_gpu_arch() {
