@@ -221,6 +221,18 @@ gpu_run_env() {
     export CTR_GPU_ARGS GPU_HOME
 }
 
+apptainer_build() {
+    cntr_title=$1
+    mkdir -p ${THISDIR}/image_files
+    docker_path="docker-daemon://${cntr_title}"
+    apptainer_title=$(echo $k | tr ':' '_')
+    image_file="${THISDIR}/image_files/${apptainer_title}.sif"
+    if [[ -f $image_file ]]; then
+        rm -rf $image_file
+    fi
+    apptainer build $image_file $docker_path
+}
+
 ## cmake_it wraps the cmake/make/make-install sequence common to every
 ## test's build.sh. Call as: cmake_it $CMAKE_FLAGS $SRC
 ## (CMAKE_FLAGS expands unquoted into multiple -D... words followed by the

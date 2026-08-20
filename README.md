@@ -1,15 +1,10 @@
 # CONTAINER EXAMPLES
 
+Run `./getsrc.sh` first
+
 ## BUILD CONTAINER
 
-``` bash
-CNTR_VER=2.0
-cntr_name=cn-amd:v${CNTR_VER}
-cntr_name_apptainer=$(echo $k | tr ':' '_')
-image_file="${THISDIR}/image_files/${cntr_name_apptainer}.sif"
-docker build -t ${cntr_name} -f Dockerfile.amd --progress=plain .
-apptainer build ${image_file} docker-daemon://${cntr_name}
-```
+`./build.sh hplmxp`
 
 ## RUN CONTAINER
 

@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+## BUILD ALL=
+# for k in $(ls examples); do
+#     ./build.sh $k
+# done
+
 ## FIND THIS DIRECTORY
 THISFILE=${BASH_SOURCE[0]}
 : ${THISFILE:=$0}
@@ -13,13 +18,14 @@ export TEST_DIR=${ROOT_DIR}/examples/${NAME}
 VER=2
 
 source $ROOT_DIR/util
+setvar "$@"
 
 ## Detect the GPU once here and export TYPE so every downstream script
 ## (this file, examples/<test>/build.sh) reuses it instead of re-running
 ## the slow *-smi probes.
 detect_gpu
 
-DOCKERFILE=$TEST_DIR/Dockerfile.${NAME}.${TYPE}
+DOCKERFILE=${TEST_DIR}/Dockerfile.${NAME}.${TYPE}
 CNTR_NAME=cn-${NAME}-${TYPE}
 
 if [[ ! (-f $DOCKERFILE) ]]; then
@@ -27,6 +33,8 @@ if [[ ! (-f $DOCKERFILE) ]]; then
     exit 1
 fi
 
-docker build -t ${CNTR_NAME}:v${VER} -f $DOCKERFILE --progress=plain . |& tee ${CNTR_NAME}.log
+CNTR_TITLE=${CNTR_NAME}:v${VER}
 
-${TEST_DIR}/build.sh "$@"
+docker build -t ${CNTR_TITLE} -f $DOCKERFILE --progress=plain . |& tee ${CNTR_NAME}.log
+
+apptainer_build $CNTR_TITLE
