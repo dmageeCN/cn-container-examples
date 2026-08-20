@@ -10,7 +10,7 @@ Run `./getsrc.sh` first.
 
 TEST_NAME=hplmxp or hpcg
 
-The other argument can be `TYPE=cpu,nvidia,amd`. Will default to nvidia or amd if those GPUs are available. TYPE=cpu will override that.
+The other argument can be `TYPE=cpu|nvidia|amd`. Will default to nvidia or amd if those GPUs are available. TYPE=cpu will override that.
 
 ``` bash
 ./run.sh TEST_NAME KEY=VALUE RUN_ARGS

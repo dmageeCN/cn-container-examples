@@ -8,6 +8,7 @@ export SRC_DIR=${ROOT_DIR}/src/${NAME}
 export IMAGE_DIR=${ROOT_DIR}/image_files
 export RESULTS_DIR=${ROOT_DIR}/results/${NAME}
 export UTIL_SOURCED=1
+export THEDATE=$(date +'%m-%d_%H-%M')
 
 gcl() {
     git clone --recurse-submodules $1
@@ -202,25 +203,15 @@ gpu_build_env() {
     export CMAKE_FLAGS
 }
 
-## gpu_run_env sets up GPU_HOME/LD_LIBRARY_PATH and seeds CTR_GPU_ARGS with
-## the apptainer flags needed to expose the GPU (and, for nvidia, the OPX
-## GDR devices) inside the container. Callers append CTR_GPU_ARGS to their
-## own ctr_args.
 gpu_run_env() {
     detect_gpu
     CTR_GPU_ARGS=""
     case $TYPE in
         amd )
             CTR_GPU_ARGS=" --rocm"
-            : ${GPU_HOME:=/opt/rocm}
-            export GPU_HOME
-            export LD_LIBRARY_PATH=${GPU_HOME}/lib:${LD_LIBRARY_PATH}
             ;;
         nvidia )
             CTR_GPU_ARGS=" --nv --bind /dev/hfi1_gdr,/dev/gdrdrv"
-            : ${GPU_HOME:=/usr/local/cuda}
-            export GPU_HOME
-            export LD_LIBRARY_PATH=${GPU_HOME}/lib64:${LD_LIBRARY_PATH}
             ;;
     esac
     export CTR_GPU_ARGS GPU_HOME

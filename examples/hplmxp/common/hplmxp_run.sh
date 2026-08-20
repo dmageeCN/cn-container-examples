@@ -34,7 +34,6 @@ setvar "$@"
 
 : ${Ni:=32000}
 : ${NBi:=640}
-: ${PPN:=8}
 
 # Set MPI parameters
 export OMPI_MCA_mtl=ofi
