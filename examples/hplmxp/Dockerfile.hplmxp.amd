@@ -1,4 +1,4 @@
-FROM cn-amd:v2.0
+FROM ghcr.io/dmageecn/cn-nvidia:latest
 
 ARG TEST_NAME=hplmxp
 ARG REPO_NAME=rocHPL-MxP

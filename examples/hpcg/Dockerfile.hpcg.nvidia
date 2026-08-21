@@ -1,4 +1,4 @@
-FROM cn-nvidia:v2.0
+FROM ghcr.io/dmageecn/cn-nvidia:latest
 
 ARG TEST_NAME=hpcg
 ARG REPO_NAME=rocHPCG
