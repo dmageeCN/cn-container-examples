@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 
 # Launch as apptainer:
-# ctr_image=image_files/cn-nvidia-rocm-hpcg_v2.0.sif
+# ctr_image=image_files/cn-hpl-nvidia_v2.0.sif
 # mpi_args='-np 2 -map-by ppr:${PPN}:node --report-bindings'
 # ctr_args="apptainer exec --bind /lib/modules --bind common:/loc_mnt"
 # AMD:    ctr_args+=" --rocm"
 # NVIDIA: ctr_args+=" --nv --bind /dev/hfi1_gdr,/dev/gdrdrv"
-# ctr_wrapper='/loc_mnt/hpcg_run.sh'
-# mpirun ${mpi_args} ${ctr_args} ${ctr_image} ${ctr_wrapper}
+# ctr_wrapper='/loc_mnt/hpl_run.sh'
+# HPLARGS="Pi=... Qi=... Ni=... NBi=..."
+# mpirun ${mpi_args} ${ctr_args} ${ctr_image} ${ctr_wrapper} ${HPLARGS}
 
 source /usr/local/bin/cn_env.sh
 
@@ -22,10 +23,10 @@ setvar() {
 
 setvar "$@"
 
-: ${NXi:=560}
-: ${NYi:=280}
-: ${NZi:=280}
-: ${RTi:=60}
+: ${Pi:=1}
+: ${Qi:=1}
+: ${Ni:=45312}
+: ${NBi:=384}
 
 # Set MPI parameters
 export OMPI_MCA_mtl=ofi
@@ -47,26 +48,15 @@ fi
 # export FI_OPX_HFISVC=1
 # HIP USE DMABUF?
 if [[ $GPU == 'nvidia' ]]; then
+    export FI_HMEM_CUDA=1
     export FI_HMEM_CUDA_USE_DMABUF=1
     export FI_HMEM_CUDA_USE_GDRCOPY=0
 fi
 
 NRANK=$OMPI_COMM_WORLD_RANK
-## rochpcg/xhpcg both take nx/ny/nz/runtime positionally; unlike rochplmxp
-## there is no -P/-Q grid arg -- rank-to-GPU mapping is done internally
-## (comm_rank % ndevs) so no --dev= needs to be passed here either.
-HPCGARGS="${NXi} ${NYi} ${NZi} ${RTi}"
-
-## GPU is set by cn_env.sh based on what's actually present in this image
-## (nvidia/amd/none) -- use it to pick the right binary: the GPU-enabled
-## rocHPCG port, or upstream's stock CPU-only xhpcg.
-if [[ $GPU == 'nvidia' || $GPU == 'amd' ]]; then
-    HPCG_BIN=/usr/local/rocHPCG/rochpcg
-else
-    HPCG_BIN=/usr/local/hpcg/bin/xhpcg
-fi
+HPLARGS="-P ${Pi} -Q ${Qi} -N ${Ni} --NB ${NBi}"
 
 if [[ $NRANK == 0 ]]; then
-    echo ${HPCG_BIN} $HPCGARGS
+    echo /usr/local/rocHPL/run_rochpl $HPLARGS
 fi
-${HPCG_BIN} $HPCGARGS
+/usr/local/rocHPL/run_rochpl $HPLARGS

@@ -41,14 +41,16 @@ URLS[hplmxp]="${gitprefix}dmageeCN/rocHPL-MxP.git"
 URLS[hpl]="${gitprefix}dmageeCN/rocHPL.git"
 URLS[branson]="${gitprefix}lanl/branson.git"
 URLS[hpcg]="${gitprefix}hpcg-benchmark/hpcg.git" ## ?? GPU ENABLED VERSION.
-URLS[hpcg]="${gitprefix}dmageeCN/rocHPCG.git"
+URLS[hpcg]+=" ${gitprefix}dmageeCN/rocHPCG.git"
 URLS[gromacs]="${gitprefix}gromacs/gromacs.git"
 URLS[parthenon]="${gitprefix}parthenon-hpc-lab/parthenon.git"
 
-for k in "${!URLS[@]}"; do
-    mkdir -p ${ALL_SRC_DIR}/${k}
-    cd ${ALL_SRC_DIR}/$k
-    get_pkgs ${URLS[$k]} # Intentionally unquoted
+for url_key in "${!URLS[@]}"; do
+    mkdir -p ${ALL_SRC_DIR}/${url_key}
+    cd ${ALL_SRC_DIR}/$url_key
+    for url in ${URLS[$url_key]}; do 
+        get_pkgs $url # Intentionally unquoted
+    done
 done
 
 #SETUP venv

@@ -55,6 +55,7 @@ fi
 # export FI_OPX_HFISVC=1
 # HIP USE DMABUF?
 if [[ $GPU == 'nvidia' ]]; then
+    export FI_HMEM_CUDA=1
     export FI_HMEM_CUDA_USE_DMABUF=1
     export FI_HMEM_CUDA_USE_GDRCOPY=0
 fi
