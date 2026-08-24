@@ -1,0 +1,68 @@
+FROM ghcr.io/dmageecn/cn-cpu:latest
+
+ARG TEST_NAME=parthenon
+ARG REPO_NAME=parthenon
+# COPY src/common/ ${SRC_DIR}/
+ARG SRC_DIR=/usr/local/src
+ARG BUILD_DIR=/usr/local/build
+ARG INSTALL_DIR=/usr/local
+ARG OMPI_VER=5.0.8
+ARG ROOT_HOME=/root
+ARG OPATH=${PATH}
+ARG OLIB=${LD_LIBRARY_PATH}
+
+COPY src/${TEST_NAME}/ ${SRC_DIR}/
+
+## The CMake shipped by the base OS is too old for Parthenon (requires
+## >= 3.16, but newer is safer) -- pull a fresh one from dnf, matching the
+## other examples' convention.
+RUN dnf install -y cmake && \
+    dnf clean all
+
+ENV OFI_HOME=${INSTALL_DIR}/libfabric
+ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
+ENV PATH="${OFI_HOME}/bin:${MPI_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
+
+WORKDIR ${SRC_DIR}/${REPO_NAME}
+RUN git checkout v25.12
+
+## GCC+OpenMPI: use the mpi compiler wrappers directly as CC/CXX so
+## Parthenon/Kokkos's MPI detection just works (no GPU backend here, so no
+## nvcc_wrapper/hipcc juggling is needed). HDF5 output, the python-module
+## regression check, gold-standard-sync downloads, and the test suite are
+## all disabled -- none of them are needed to build/run the burgers
+## benchmark in a container. Kokkos_ENABLE_OPENMP turns on host threading
+## instead of falling back to Kokkos's single-threaded Serial backend.
+ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
+    -DPARTHENON_DISABLE_HDF5=ON \
+    -DPARTHENON_ENABLE_PYTHON_MODULE_CHECK=OFF \
+    -DREGRESSION_GOLD_STANDARD_SYNC=OFF \
+    -DPARTHENON_ENABLE_TESTING=OFF \
+    -DKokkos_ENABLE_OPENMP=ON \
+    ${SRC_DIR}/${REPO_NAME}"
+
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
+
+WORKDIR /tmp/build
+RUN cmake ${CMAKE_FLAGS} && \
+    make -j 16
+
+## Parthenon's own CMakeLists.txt only installs the parthenon library, not
+## the benchmarks -- benchmarks/burgers/CMakeLists.txt has no install()
+## rule, so the burgers-benchmark executable has to be copied by hand
+## (same pattern as hpcg-cpu's xhpcg). Ship the reference .pin input deck
+## alongside it.
+RUN mkdir -p ${INSTALL_DIR}/${REPO_NAME}/bin && \
+    cp /tmp/build/benchmarks/burgers/burgers-benchmark ${INSTALL_DIR}/${REPO_NAME}/bin/ && \
+    cp ${SRC_DIR}/${REPO_NAME}/benchmarks/burgers/burgers.pin ${INSTALL_DIR}/${REPO_NAME}/
+
+ENV PATH=${OPATH}
+ENV LD_LIBRARY_PATH=${OLIB}
+ENV CC=
+ENV CXX=
+ENV FC=
+
+WORKDIR /workspace

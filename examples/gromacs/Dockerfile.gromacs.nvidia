@@ -1,0 +1,73 @@
+FROM ghcr.io/dmageecn/cn-nvidia:latest
+
+ARG TEST_NAME=gromacs
+ARG REPO_NAME=gromacs
+# COPY src/common/ ${SRC_DIR}/
+ARG SRC_DIR=/usr/local/src
+ARG BUILD_DIR=/usr/local/build
+ARG INSTALL_DIR=/usr/local
+ARG OMPI_VER=5.0.8
+ARG ROOT_HOME=/root
+ARG OPATH=${PATH}
+ARG OLIB=${LD_LIBRARY_PATH}
+
+COPY src/${TEST_NAME}/ ${SRC_DIR}/
+
+## fftw3 isn't guaranteed to be in the base image, and the CMake shipped by
+## the base OS is too old for GROMACS (requires >= 3.28) -- pull both from
+## dnf.
+RUN dnf install -y fftw-devel cmake && \
+    dnf clean all
+
+ENV OFI_HOME=${INSTALL_DIR}/libfabric
+ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
+ENV CUDA_HOME=/usr/local/cuda
+ENV CUDA_STUBS=${CUDA_HOME}/lib64/stubs
+ENV PATH="${OFI_HOME}/bin:${MPI_HOME}/bin:${CUDA_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${MPI_HOME}/lib:${CUDA_HOME}/lib64:${CUDA_STUBS}:${LD_LIBRARY_PATH}"
+
+## GCC+OpenMPI+CUDA: GROMACS's CUDA support insists on a "supported" host
+## compiler unless told otherwise. fftw3 is still used as the CPU-side FFT
+## library even in the GPU build (cuFFTMP is intentionally out of scope).
+## This repo is meant to be built by the public on whatever NVIDIA GPU they
+## have, not just Cornelis's own H100s -- "all-major" asks GROMACS's own
+## toolkit-driven arch probe (cmake/gmxManageCuda.cmake) for a fat binary
+## covering every major architecture the installed CUDA compiler supports,
+## rather than hardcoding one. Override with e.g. `--build-arg CUDA_ARCH=90`
+## to build faster for a single known GPU.
+ARG CUDA_ARCH="all-major"
+
+ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
+    -DGMX_MPI=on \
+    -DGMX_FFT_LIBRARY=fftw3 \
+    -DGMX_SIMD=AVX_512 \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DGMX_GPU=CUDA \
+    -DGMX_CUDA_FLAGS=--allow-unsupported-compiler \
+    -DCMAKE_CUDA_FLAGS=--allow-unsupported-compiler \
+    -DGMX_CUDA_ARCHITECTURES=${CUDA_ARCH} \
+    ${SRC_DIR}/${REPO_NAME}"
+
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
+ENV CFLAGS="-w -fPIC"
+ENV CXXFLAGS="-w -fPIC"
+
+WORKDIR ${SRC_DIR}/${REPO_NAME}
+RUN git checkout v2026.3
+
+WORKDIR /tmp/build
+RUN cmake ${CMAKE_FLAGS} && \
+    make -j 16 && \
+    make -j 16 install
+
+ENV PATH=${OPATH}
+ENV LD_LIBRARY_PATH=${OLIB}
+ENV CC=
+ENV CXX=
+ENV FC=
+ENV CFLAGS=
+ENV CXXFLAGS=
+
+WORKDIR /workspace

@@ -1,0 +1,78 @@
+FROM ghcr.io/dmageecn/cn-amd:latest
+
+ARG TEST_NAME=gromacs
+ARG REPO_NAME=gromacs
+# COPY src/common/ ${SRC_DIR}/
+ARG SRC_DIR=/usr/local/src
+ARG BUILD_DIR=/usr/local/build
+ARG INSTALL_DIR=/usr/local
+ARG OMPI_VER=5.0.8
+ARG ROOT_HOME=/root
+ARG OPATH=${PATH}
+ARG OLIB=${LD_LIBRARY_PATH}
+
+COPY src/${TEST_NAME}/ ${SRC_DIR}/
+
+## fftw3 isn't guaranteed to be in the base image, and the CMake shipped by
+## the base OS is too old for GROMACS (requires >= 3.28) -- pull both from
+## dnf.
+RUN dnf install -y fftw-devel cmake && \
+    dnf clean all
+
+ENV OFI_HOME=${INSTALL_DIR}/libfabric
+ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
+ENV ROCM_HOME=/opt/rocm
+ENV PATH="${OFI_HOME}/bin:${ROCM_HOME}/bin:${MPI_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${ROCM_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
+
+## GCC+OpenMPI+HIP. fftw3 is still used as the CPU-side FFT library, rocFFT
+## handles the GPU-side FFT. -DOpenMP_CXX_FLAGS=-fopenmp forces gomp instead
+## of iomp so `-fiopenmp` doesn't leak onto the HIP compile line and break
+## it. This repo is meant to be built by the public on whatever AMD GPU they
+## have, not just Cornelis's own MI300Xs -- default GMX_HIP_TARGET_ARCH to a
+## multi-arch fat binary (GROMACS's own broad default list, plus gfx950/
+## MI350X appended since this GROMACS version predates it) instead of
+## hardcoding one. Override with e.g. `--build-arg HIP_ARCH=gfx942` to build
+## faster for a single known GPU.
+ARG HIP_ARCH="gfx801,gfx802,gfx803,gfx900,gfx906,gfx90a,gfx90c,gfx942,gfx950"
+
+ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
+    -DGMX_MPI=on \
+    -DGMX_FFT_LIBRARY=fftw3 \
+    -DGMX_SIMD=AVX_512 \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DGMX_GPU=HIP \
+    -DCMAKE_HIP_COMPILER=${ROCM_HOME}/bin/amdclang++ \
+    -DGMX_GPU_FFT_LIBRARY=rocFFT \
+    -DCMAKE_PREFIX_PATH=${ROCM_HOME} \
+    -DGMX_HIP_TARGET_ARCH=${HIP_ARCH} \
+    -DOpenMP_CXX_FLAGS=-fopenmp \
+    ${SRC_DIR}/${REPO_NAME}"
+
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
+ENV CFLAGS="-w -fPIC"
+ENV CXXFLAGS="-w -fPIC"
+
+WORKDIR ${SRC_DIR}/${REPO_NAME}
+RUN git checkout v2026.3
+
+WORKDIR /tmp/build
+## -DCMAKE_HIP_FLAGS needs to stay a single, space-containing argument (it
+## points GROMACS's HIP compile line at the MPI headers) so it's quoted
+## directly in the RUN command rather than folded into the CMAKE_FLAGS ARG
+## string, which would otherwise get word-split by the unquoted expansion.
+RUN cmake ${CMAKE_FLAGS} -DCMAKE_HIP_FLAGS="-I${MPI_HOME}/include -fopenmp" && \
+    make -j 16 && \
+    make -j 16 install
+
+ENV PATH=${OPATH}
+ENV LD_LIBRARY_PATH=${OLIB}
+ENV CC=
+ENV CXX=
+ENV FC=
+ENV CFLAGS=
+ENV CXXFLAGS=
+
+WORKDIR /workspace

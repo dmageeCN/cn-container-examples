@@ -21,6 +21,11 @@ ENV ROCM_HOME=/opt/rocm
 ENV PATH="${OFI_HOME}/bin:${ROCM_HOME}/bin:${MPI_HOME}/bin:${PATH}"
 ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${ROCM_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
 
+## No explicit GPU-arch flag is passed here on purpose: upstream's own
+## CMakeLists.txt sets HIP_ARCHITECTURES from ROCm's DEFAULT_AMDGPU_TARGETS
+## (populated by `find_package(hip)`), which already builds a broad
+## multi-arch fat binary for whatever ROCm version is in the base image --
+## this is already portable across AMD GPU generations without our help.
 ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
     -DHPL_MPI_DIR=${MPI_HOME} \
     -DROCM_PATH=${ROCM_HOME} \

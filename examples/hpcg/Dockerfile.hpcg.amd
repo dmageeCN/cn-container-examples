@@ -21,6 +21,11 @@ ENV ROCM_HOME=/opt/rocm
 ENV PATH="${OFI_HOME}/bin:${ROCM_HOME}/bin:${MPI_HOME}/bin:${PATH}"
 ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${ROCM_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
   
+## No explicit GPU-arch flag is passed here on purpose: rocHPCG's own
+## CMakeLists.txt already builds the broadest multi-arch AMDGPU_TARGETS
+## fat binary supported by the detected ROCm/HIP version, and separately
+## documents a `-DGPU_TARGETS=...` override for anyone who wants to narrow
+## it -- no need to hardcode a single arch here.
 ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
     -DHPCG_MPI_DIR=${MPI_HOME} \
     -DROCM_PATH=${ROCM_HOME} \

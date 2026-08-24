@@ -1,0 +1,84 @@
+FROM ghcr.io/dmageecn/cn-amd:latest
+
+ARG TEST_NAME=branson
+ARG REPO_NAME=branson
+# COPY src/common/ ${SRC_DIR}/
+ARG SRC_DIR=/usr/local/src
+ARG BUILD_DIR=/usr/local/build
+ARG INSTALL_DIR=/usr/local
+ARG OMPI_VER=5.0.8
+ARG ROOT_HOME=/root
+ARG OPATH=${PATH}
+ARG OLIB=${LD_LIBRARY_PATH}
+
+COPY src/${TEST_NAME}/ ${SRC_DIR}/
+
+## Branson requires CMake >= 3.24 (newer than any of the other examples in
+## this repo) -- the base OS's cmake is almost certainly too old, so pull a
+## fresh one from dnf, matching the other examples' convention.
+RUN dnf install -y cmake && \
+    dnf clean all
+
+ENV OFI_HOME=${INSTALL_DIR}/libfabric
+ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
+ENV ROCM_HOME=/opt/rocm
+ENV PATH="${OFI_HOME}/bin:${ROCM_HOME}/bin:${MPI_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${ROCM_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
+
+## Unlike the other examples, Branson's CMakeLists.txt lives under src/,
+## not at the repo root.
+WORKDIR ${SRC_DIR}/${REPO_NAME}
+
+## No release tag includes GPU support (it landed after the last tag was
+## cut) -- build from develop as cloned by getsrc.sh.
+
+## Branson's CMakeLists.txt sets CMAKE_HIP_HOST_COMPILER from
+## CMAKE_CXX_COMPILER directly (unlike Kokkos-based Parthenon, which
+## requires hipcc as CXX itself), so plain mpicxx works unchanged as CXX
+## here. ROCM_PATH is Branson's own required CMake variable -- it uses it to
+## derive CMAKE_HIP_COMPILER and CMAKE_PREFIX_PATH internally, so nothing
+## else needs to be set by hand. USE_GPU is a separate switch from USE_HIP --
+## both are required to actually turn on the HIP code path and its
+## `enable_language(HIP)` setup.
+##
+## HIP_ARCH flows straight into CMake's native (multi-value-capable)
+## CMAKE_HIP_ARCHITECTURES, and Branson does no validation of its own, so
+## -- unlike Parthenon/Kokkos -- a broad multi-arch fat binary is possible
+## here. Default list covers several recent AMD generations (MI300X,
+## MI350X and a couple predecessors) so this builds and runs on whatever
+## AMD GPU a public user happens to have, without requiring a matching GPU
+## on the build host; override with e.g. `--build-arg HIP_ARCH=gfx942` for
+## a single-arch/faster build.
+ARG HIP_ARCH="gfx908;gfx90a;gfx942;gfx950"
+ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
+    -DBUILD_TESTING=OFF \
+    -DUSE_OPENMP=ON \
+    -DUSE_HIP=ON \
+    -DUSE_GPU=ON \
+    -DHIP_ARCH=${HIP_ARCH} \
+    -DROCM_PATH=${ROCM_HOME} \
+    ${SRC_DIR}/${REPO_NAME}/src"
+
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
+
+WORKDIR /tmp/build
+RUN cmake ${CMAKE_FLAGS} && \
+    make -j 16 && \
+    make -j 16 install
+
+## Branson's top-level CMakeLists.txt does install() the BRANSON binary
+## itself, but not the sample XML input decks under inputs/ -- copy those
+## by hand so the run wrapper has something to point at.
+RUN mkdir -p ${INSTALL_DIR}/${REPO_NAME}/inputs && \
+    cp ${SRC_DIR}/${REPO_NAME}/inputs/*.xml ${INSTALL_DIR}/${REPO_NAME}/inputs/
+
+ENV PATH=${OPATH}
+ENV LD_LIBRARY_PATH=${OLIB}
+ENV CC=
+ENV CXX=
+ENV FC=
+
+WORKDIR /workspace

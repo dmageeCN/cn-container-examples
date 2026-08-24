@@ -1,0 +1,60 @@
+FROM ghcr.io/dmageecn/cn-cpu:latest
+
+ARG TEST_NAME=gromacs
+ARG REPO_NAME=gromacs
+# COPY src/common/ ${SRC_DIR}/
+ARG SRC_DIR=/usr/local/src
+ARG BUILD_DIR=/usr/local/build
+ARG INSTALL_DIR=/usr/local
+ARG OMPI_VER=5.0.8
+ARG ROOT_HOME=/root
+ARG OPATH=${PATH}
+ARG OLIB=${LD_LIBRARY_PATH}
+
+COPY src/${TEST_NAME}/ ${SRC_DIR}/
+
+## fftw3 isn't guaranteed to be in the base image, and the CMake shipped by
+## the base OS is too old for GROMACS (requires >= 3.28) -- pull both from
+## dnf. GROMACS also wants a real compiler-provided OpenMP runtime.
+RUN dnf install -y fftw-devel cmake && \
+    dnf clean all
+
+ENV OFI_HOME=${INSTALL_DIR}/libfabric
+ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
+ENV PATH="${OFI_HOME}/bin:${MPI_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
+
+## GCC+OpenMPI: use the mpi compiler wrappers directly as CC/CXX so GROMACS's
+## MPI detection just works. fftw3 is used as the CPU FFT library (dnf
+## package above) -- cuFFTMP/MKL/the built-in fftpack are intentionally out
+## of scope for now.
+ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
+    -DGMX_MPI=on \
+    -DGMX_FFT_LIBRARY=fftw3 \
+    -DGMX_SIMD=AVX_512 \
+    -DCMAKE_BUILD_TYPE=Release \
+    ${SRC_DIR}/${REPO_NAME}"
+
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
+ENV CFLAGS="-w -fPIC"
+ENV CXXFLAGS="-w -fPIC"
+
+WORKDIR ${SRC_DIR}/${REPO_NAME}
+RUN git checkout v2026.3
+
+WORKDIR /tmp/build
+RUN cmake ${CMAKE_FLAGS} && \
+    make -j 16 && \
+    make -j 16 install
+
+ENV PATH=${OPATH}
+ENV LD_LIBRARY_PATH=${OLIB}
+ENV CC=
+ENV CXX=
+ENV FC=
+ENV CFLAGS=
+ENV CXXFLAGS=
+
+WORKDIR /workspace

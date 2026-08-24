@@ -1,0 +1,83 @@
+FROM ghcr.io/dmageecn/cn-amd:latest
+
+ARG TEST_NAME=parthenon
+ARG REPO_NAME=parthenon
+# COPY src/common/ ${SRC_DIR}/
+ARG SRC_DIR=/usr/local/src
+ARG BUILD_DIR=/usr/local/build
+ARG INSTALL_DIR=/usr/local
+ARG OMPI_VER=5.0.8
+ARG ROOT_HOME=/root
+ARG OPATH=${PATH}
+ARG OLIB=${LD_LIBRARY_PATH}
+
+COPY src/${TEST_NAME}/ ${SRC_DIR}/
+
+## The CMake shipped by the base OS is too old for Parthenon (requires
+## >= 3.16, but newer is safer) -- pull a fresh one from dnf, matching the
+## other examples' convention.
+RUN dnf install -y cmake && \
+    dnf clean all
+
+ENV OFI_HOME=${INSTALL_DIR}/libfabric
+ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
+ENV ROCM_HOME=/opt/rocm
+ENV PATH="${OFI_HOME}/bin:${ROCM_HOME}/bin:${MPI_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${ROCM_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
+
+WORKDIR ${SRC_DIR}/${REPO_NAME}
+RUN git checkout v25.12
+
+## Kokkos's HIP backend expects CMAKE_CXX_COMPILER to be hipcc directly
+## (matching upstream Kokkos's own FrontierAndCrusher.cmake "hip" variant),
+## unlike GROMACS which instead points CMAKE_HIP_COMPILER at amdclang++.
+## hipcc doesn't know about MPI on its own, so its include path is passed
+## via CXXFLAGS.
+##
+## Unlike the other (non-Kokkos) examples in this repo, Kokkos can only
+## target ONE GPU architecture per build -- enabling more than one
+## Kokkos_ARCH_* option at once is a hard FATAL_ERROR upstream, and its own
+## build-time auto-detection (via rocm_agent_enumerator) requires a real,
+## matching GPU physically present on the machine running `docker build`
+## (not a safe assumption for a publicly-built image). So AMD_ARCH is a
+## single explicit Kokkos_ARCH_* suffix (see
+## external/Kokkos/cmake/kokkos_arch.cmake for the full list, e.g.
+## VEGA90A/MI250X, AMD_GFX942/MI300X, AMD_GFX950/MI350X), defaulting to
+## MI300X but overridable via `--build-arg AMD_ARCH=...`.
+ARG AMD_ARCH=AMD_GFX942
+ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
+    -DPARTHENON_DISABLE_HDF5=ON \
+    -DPARTHENON_ENABLE_PYTHON_MODULE_CHECK=OFF \
+    -DREGRESSION_GOLD_STANDARD_SYNC=OFF \
+    -DPARTHENON_ENABLE_TESTING=OFF \
+    -DKokkos_ENABLE_OPENMP=ON \
+    -DKokkos_ENABLE_HIP=ON \
+    -DKokkos_ARCH_${AMD_ARCH}=ON \
+    ${SRC_DIR}/${REPO_NAME}"
+
+ENV CC=mpicc
+ENV CXX=${ROCM_HOME}/bin/hipcc
+ENV FC=mpifort
+ENV CXXFLAGS="-I${MPI_HOME}/include"
+
+WORKDIR /tmp/build
+RUN cmake ${CMAKE_FLAGS} && \
+    make -j 16
+
+## Parthenon's own CMakeLists.txt only installs the parthenon library, not
+## the benchmarks -- benchmarks/burgers/CMakeLists.txt has no install()
+## rule, so the burgers-benchmark executable has to be copied by hand
+## (same pattern as hpcg-cpu's xhpcg). Ship the reference .pin input deck
+## alongside it.
+RUN mkdir -p ${INSTALL_DIR}/${REPO_NAME}/bin && \
+    cp /tmp/build/benchmarks/burgers/burgers-benchmark ${INSTALL_DIR}/${REPO_NAME}/bin/ && \
+    cp ${SRC_DIR}/${REPO_NAME}/benchmarks/burgers/burgers.pin ${INSTALL_DIR}/${REPO_NAME}/
+
+ENV PATH=${OPATH}
+ENV LD_LIBRARY_PATH=${OLIB}
+ENV CC=
+ENV CXX=
+ENV FC=
+ENV CXXFLAGS=
+
+WORKDIR /workspace

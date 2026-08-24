@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
 # Launch as apptainer:
-# ctr_image=image_files/cn-nvidia-rocm-hpcg_v2.0.sif
-# mpi_args='-np 2 -map-by ppr:${PPN}:node --report-bindings'
+# ctr_image=image_files/cn-nvidia-branson_v2.0.sif
+# mpi_args='-np 2 --map-by ppr:${PPN}:node:pe=${OMP_NUM_THREADS} --report-bindings'
 # ctr_args="apptainer exec --bind /lib/modules --bind common:/loc_mnt"
 # AMD:    ctr_args+=" --rocm"
 # NVIDIA: ctr_args+=" --nv --bind /dev/hfi1_gdr,/dev/gdrdrv"
-# ctr_wrapper='/loc_mnt/hpcg_run.sh'
-# mpirun ${mpi_args} ${ctr_args} ${ctr_image} ${ctr_wrapper}
+# ctr_wrapper='/loc_mnt/branson_run.sh'
+# mpirun ${mpi_args} ${ctr_args} ${ctr_image} ${ctr_wrapper} INPUT=3D_hohlraum_multi_node.xml PHOTONS=250000000
 
 source /usr/local/bin/cn_env.sh
 
@@ -22,10 +22,11 @@ setvar() {
 
 setvar "$@"
 
-: ${NXi:=560}
-: ${NYi:=280}
-: ${NZi:=280}
-: ${RTi:=60}
+: ${INPUT:=3D_hohlraum_multi_node.xml}
+: ${PHOTONS:=250000000}
+: ${OMP_NUM_THREADS:=1}
+
+export OMP_NUM_THREADS
 
 # Set MPI parameters
 export OMPI_MCA_mtl=ofi
@@ -45,7 +46,6 @@ fi
 
 # # ENABLE HFISVC?
 # export FI_OPX_HFISVC=1
-# HIP USE DMABUF?
 if [[ $GPU == 'nvidia' ]]; then
     export FI_HMEM_CUDA=1
     export FI_HMEM_CUDA_USE_DMABUF=1
@@ -53,21 +53,16 @@ if [[ $GPU == 'nvidia' ]]; then
 fi
 
 NRANK=$OMPI_COMM_WORLD_RANK
-## rochpcg/xhpcg both take nx/ny/nz/runtime positionally; unlike rochplmxp
-## there is no -P/-Q grid arg -- rank-to-GPU mapping is done internally
-## (comm_rank % ndevs) so no --dev= needs to be passed here either.
-HPCGARGS="${NXi} ${NYi} ${NZi} ${RTi}"
 
-## GPU is set by cn_env.sh based on what's actually present in this image
-## (nvidia/amd/none) -- use it to pick the right binary: the GPU-enabled
-## rocHPCG port, or upstream's stock CPU-only xhpcg.
-if [[ $GPU == 'nvidia' || $GPU == 'amd' ]]; then
-    HPCG_BIN=/usr/local/rocHPCG/rochpcg
-else
-    HPCG_BIN=/usr/local/hpcg/bin/xhpcg
-fi
+BRANSON_BIN=/usr/local/branson/bin/BRANSON
+BRANSON_INPUT=/usr/local/branson/inputs/${INPUT}
+
+## Branson's own --key value (or --key=value) CLI mechanism overrides any
+## tag inside the input deck's <common> block -- --photons is the primary
+## scaling knob, --n_omp_threads wires up Kokkos-style host threading.
+BARGS="--photons ${PHOTONS} --n_omp_threads ${OMP_NUM_THREADS}"
 
 if [[ $NRANK == 0 ]]; then
-    echo ${HPCG_BIN} $HPCGARGS
+    echo ${BRANSON_BIN} ${BRANSON_INPUT} ${BARGS}
 fi
-${HPCG_BIN} $HPCGARGS
+${BRANSON_BIN} ${BRANSON_INPUT} ${BARGS}

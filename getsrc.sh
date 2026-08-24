@@ -44,6 +44,8 @@ URLS[hpcg]="${gitprefix}hpcg-benchmark/hpcg.git" ## ?? GPU ENABLED VERSION.
 URLS[hpcg]+=" ${gitprefix}dmageeCN/rocHPCG.git"
 URLS[gromacs]="${gitprefix}gromacs/gromacs.git"
 URLS[parthenon]="${gitprefix}parthenon-hpc-lab/parthenon.git"
+URLS[amg]="${gitprefix}llnl/amg2023.git"
+URLS[amg]="${gitprefix}hypre-space/hypre.git"
 
 for url_key in "${!URLS[@]}"; do
     mkdir -p ${ALL_SRC_DIR}/${url_key}

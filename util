@@ -143,14 +143,12 @@ detect_gpu() {
         case $TYPE in
             nvidia )
                 if ! nvidia-smi &> /dev/null; then
-                    echo "ERROR: TYPE=nvidia was requested but no NVIDIA GPU detected." >&2
-                    exit 1
+                    export GPU_PRESENT=0
                 fi
                 ;;
             amd )
                 if ! rocm-smi &> /dev/null; then
-                    echo "ERROR: TYPE=amd was requested but no AMD GPU detected." >&2
-                    exit 1
+                    export GPU_PRESENT=0
                 fi
                 ;;
             cpu )
@@ -179,32 +177,48 @@ detect_gpu() {
 ## append their own test-specific CMAKE_FLAGS after calling this.
 gpu_build_env() {
     detect_gpu
-    CMAKE_FLAGS=""
+    if [[ $GPU_PRESENT == 0 ]]; then
+        echo "NON-GPU node for build ${TYPE}."
+        echo "Continuing build with default ALL ARCHITECTURES."
+        return 0
+    fi
     case $TYPE in
         amd )
-            : ${GPU_HOME:=/opt/rocm}
-            export GPU_HOME
-            export PATH=${GPU_HOME}/bin:${PATH}
-            export LD_LIBRARY_PATH=${GPU_HOME}/lib:${LD_LIBRARY_PATH}
-            export GPU_ARCH=$(get_gpu_arch $TYPE)
-            CMAKE_FLAGS="-DROCM_PATH=${ROCM_HOME}"
+            export HIP_ARCH=$(get_gpu_arch $TYPE)
+            export AMD_ARCH="AMD_${HIP_ARCH^^}"
             ;;
         nvidia )
-            # /nfs-scratch/sw/cuda/13.1.0_590.44.01
-            : ${GPU_HOME:=/usr/local/cuda}
-            export GPU_HOME
-            export PATH=${GPU_HOME}/bin:${PATH}
-            export LD_LIBRARY_PATH=${GPU_HOME}/lib64:${LD_LIBRARY_PATH}
-            export GPU_ARCH=$(get_gpu_arch $TYPE)
-            CMAKE_FLAGS="-DCMAKE_CUDA_ARCHITECTURES=${GPU_ARCH}"
-            export NVCC_APPEND_FLAGS="-forward-unknown-to-host-compiler --expt-relaxed-constexpr"
+            export CUDA_ARCH=$(get_gpu_arch $TYPE)
+            case ${CUDA_ARCH:0:1} in
+                6)
+                    nvarch=PASCAL # You're SOL if it's TURING
+                    ;;
+                7)
+                    nvarch=VOLTA # You're SOL if it's TURING
+                    ;;
+                8)
+                    nvarch=AMPERE # OR ADA.
+                    ;;
+                9)
+                    nvarch=HOPPER
+                    ;;
+                1)
+                    nvarch=BLACKWELL
+                    ;;
+                *)
+                ;;
+            esac
+            export NVIDIA_ARCH="${nvarch}${CUDA_ARCH}"
             ;;
     esac
-    export CMAKE_FLAGS
 }
 
 gpu_run_env() {
     detect_gpu
+    if [[ $GPU_PRESENT == 0 ]]; then
+        echo "Running ${TYPE} container on node without ${TYPE} GPUs won't work."
+        exit 1
+    fi
     CTR_GPU_ARGS=""
     case $TYPE in
         amd )
@@ -214,16 +228,17 @@ gpu_run_env() {
             CTR_GPU_ARGS=" --nv --bind /dev/hfi1_gdr,/dev/gdrdrv"
             ;;
     esac
-    export CTR_GPU_ARGS GPU_HOME
+    export CTR_GPU_ARGS
 }
 
 apptainer_build() {
     cntr_title=$1
-    mkdir -p ${THISDIR}/image_files
+    IMG_DIR=${ROOT_DIR}/image_files
+    mkdir -p ${IMG_DIR}
     docker_path="docker-daemon://${cntr_title}"
     apptainer_title=$(echo $k | tr ':' '_')
-    image_file="${THISDIR}/image_files/${apptainer_title}.sif"
-    if [[ -f $image_file ]]; then
+    image_file="${IMG_DIR}/${apptainer_title}.sif"
+    if [[ (-f $image_file) && ($REBUILD == 1) ]]; then
         rm -rf $image_file
     fi
     apptainer build $image_file $docker_path

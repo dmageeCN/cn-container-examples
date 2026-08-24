@@ -1,0 +1,66 @@
+FROM ghcr.io/dmageecn/cn-cpu:latest
+
+ARG TEST_NAME=branson
+ARG REPO_NAME=branson
+# COPY src/common/ ${SRC_DIR}/
+ARG SRC_DIR=/usr/local/src
+ARG BUILD_DIR=/usr/local/build
+ARG INSTALL_DIR=/usr/local
+ARG OMPI_VER=5.0.8
+ARG ROOT_HOME=/root
+ARG OPATH=${PATH}
+ARG OLIB=${LD_LIBRARY_PATH}
+
+COPY src/${TEST_NAME}/ ${SRC_DIR}/
+
+## Branson requires CMake >= 3.24 (newer than any of the other examples in
+## this repo) -- the base OS's cmake is almost certainly too old, so pull a
+## fresh one from dnf, matching the other examples' convention.
+RUN dnf install -y cmake && \
+    dnf clean all
+
+ENV OFI_HOME=${INSTALL_DIR}/libfabric
+ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
+ENV PATH="${OFI_HOME}/bin:${MPI_HOME}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
+
+## Unlike the other examples, Branson's CMakeLists.txt lives under src/,
+## not at the repo root.
+WORKDIR ${SRC_DIR}/${REPO_NAME}
+
+## No release tag includes GPU support (it landed after the last tag was
+## cut) -- build from develop as cloned by getsrc.sh.
+
+## Branson auto-detects MPI/OpenMP and derives its CUDA/HIP host compiler
+## from CMAKE_CXX_COMPILER itself, so plain mpicxx works unchanged here (no
+## nvcc_wrapper/hipcc juggling needed even on the GPU variants of this
+## Dockerfile family). Testing is disabled since we only need the BRANSON
+## binary for a container run.
+ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
+    -DBUILD_TESTING=OFF \
+    -DUSE_OPENMP=ON \
+    ${SRC_DIR}/${REPO_NAME}/src"
+
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
+
+WORKDIR /tmp/build
+RUN cmake ${CMAKE_FLAGS} && \
+    make -j 16 && \
+    make -j 16 install
+
+## Branson's top-level CMakeLists.txt does install() the BRANSON binary
+## itself, but not the sample XML input decks under inputs/ -- copy those
+## by hand so the run wrapper has something to point at.
+RUN mkdir -p ${INSTALL_DIR}/${REPO_NAME}/inputs && \
+    cp ${SRC_DIR}/${REPO_NAME}/inputs/*.xml ${INSTALL_DIR}/${REPO_NAME}/inputs/
+
+ENV PATH=${OPATH}
+ENV LD_LIBRARY_PATH=${OLIB}
+ENV CC=
+ENV CXX=
+ENV FC=
+
+WORKDIR /workspace
