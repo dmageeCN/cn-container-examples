@@ -88,7 +88,7 @@ pq_grid() {
 
 set_paths() {
     type=$1
-    image_str="cn-${type}-${NAME}"
+    image_str="cn-${NAME}-${type}"
     export HOST_INSTALL=${ROOT_DIR}/install/${type}
     ## Default to the system libfabric (/usr, whatever dnf/apt installed --
     ## this repo is public, so most users won't have access to Cornelis'
@@ -218,15 +218,18 @@ gpu_run_env() {
         exit 1
     fi
     CTR_GPU_ARGS=""
+    NGPUSYS=64 # ACTUALLY CPU.
     case $TYPE in
         amd )
             CTR_GPU_ARGS=" --rocm"
+            NGPUSYS=$(nvidia-smi -q | awk '/Attached G/ {print $NF}')
             ;;
         nvidia )
             CTR_GPU_ARGS=" --nv --bind /dev/hfi1_gdr,/dev/gdrdrv"
+            NGPUSYS=$(amd-smi list | grep -c 'GPU:')
             ;;
     esac
-    export CTR_GPU_ARGS
+    export CTR_GPU_ARGS NGPUSYS
 }
 
 apptainer_build() {
@@ -234,10 +237,15 @@ apptainer_build() {
     IMG_DIR=${ROOT_DIR}/image_files
     mkdir -p ${IMG_DIR}
     docker_path="docker-daemon://${cntr_title}"
-    apptainer_title=$(echo $k | tr ':' '_')
+    apptainer_title=$(echo $cntr_title | tr ':' '_')
     image_file="${IMG_DIR}/${apptainer_title}.sif"
-    if [[ (-f $image_file) && ($REBUILD == 1) ]]; then
-        rm -rf $image_file
+    echo $image_file
+    if [[ (-f $image_file) ]]; then
+        if [[ ($REBUILD == 1) ]]; then
+            rm -rf $image_file
+        else
+            return 0
+        fi
     fi
     apptainer build $image_file $docker_path
 }
@@ -257,6 +265,6 @@ cmake_it() {
     make -j 16 install
 }
 
-these_func=$(awk '/\(\)/ {print $1}' $ROOT_DIR/util | tr -d '()' | tr '\n' ' ')
+these_funcs=$(awk '/\(\)/ {print $1}' $ROOT_DIR/util | tr -d '()' | tr '\n' ' ')
 
 export -f $these_funcs

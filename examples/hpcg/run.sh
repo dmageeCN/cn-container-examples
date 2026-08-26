@@ -24,13 +24,12 @@ if [[ -z $UTIL_SOURCED ]]; then
     setvar "$@"
 fi
 
-: ${PPN:=8}
 : ${TESTARGS:=''}
 : ${NNODES:=$SLURM_NNODES}
 : ${VER:=2}
-: ${NXi:=560}
-: ${NYi:=280}
-: ${NZi:=280}
+: ${NXi:=512}
+: ${NYi:=384}
+: ${NZi:=384}
 : ${RTi:=60}
 : ${HFISVC:=1}
 
@@ -40,6 +39,7 @@ export VER
 ## by the root run.sh dispatcher, so the *-smi probes only ever run once.
 ## Called early since TYPE feeds OUTFILE's name below.
 gpu_run_env
+: ${PPN:=$NGPUSYS}
 
 NPROCS=$(( PPN*NNODES ))
 rslt_dir=$RESULTS_DIR

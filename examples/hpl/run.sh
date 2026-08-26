@@ -24,10 +24,11 @@ if [[ -z $UTIL_SOURCED ]]; then
     setvar "$@"
 fi
 
-: ${PPN:=8}
 : ${HPLARGS:=''}
 : ${NNODES:=$SLURM_NNODES}
 : ${VER:=2}
+: ${NPERGPU:=92800}
+: ${NBi:=1024}
 : ${HFISVC:=1}
 
 export VER
@@ -36,6 +37,7 @@ export VER
 ## by the root run.sh dispatcher, so the *-smi probes only ever run once.
 ## Called early since TYPE feeds OUTFILE's name below.
 gpu_run_env
+: ${PPN:=$NGPUSYS}
 
 NPROCS=$(( PPN*NNODES ))
 rslt_dir=$RESULTS_DIR
@@ -49,6 +51,8 @@ ctr_args+="${CTR_GPU_ARGS}"
 
 Pi=$(pq_grid $NPROCS)
 Qi=$(( NPROCS/Pi ))
+Ni=$($TEST_DIR/hplmxp_size.py $NPROCS $NPERGPU)
+
 HPLARGS="Pi=${Pi} Qi=${Qi} Ni=${Ni} NBi=${NBi}"
 
 set_paths $TYPE
