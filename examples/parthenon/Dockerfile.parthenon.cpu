@@ -13,19 +13,19 @@ ARG OLIB=${LD_LIBRARY_PATH}
 
 COPY src/${TEST_NAME}/ ${SRC_DIR}/
 
-## The CMake shipped by the base OS is too old for Parthenon (requires
-## >= 3.16, but newer is safer) -- pull a fresh one from dnf, matching the
-## other examples' convention.
-RUN dnf install -y cmake && \
-    dnf clean all
-
 ENV OFI_HOME=${INSTALL_DIR}/libfabric
 ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
 ENV PATH="${OFI_HOME}/bin:${MPI_HOME}/bin:${PATH}"
 ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
 
+## Build off develop as cloned by getsrc.sh rather than pinning to a
+## release tag. The v25.12 release tag's own CMakeLists.txt requests C++17,
+## which mismatches the Kokkos submodule commit left behind by a plain
+## `git checkout v25.12` (no submodule sync), and even once that's fixed up,
+## the GPU build hits unrelated breakage against modern CUDA toolkits.
+## develop tracks a Kokkos version that's internally consistent with the
+## C++ standard it requests, so we just build it as-is.
 WORKDIR ${SRC_DIR}/${REPO_NAME}
-RUN git checkout v25.12
 
 ## GCC+OpenMPI: use the mpi compiler wrappers directly as CC/CXX so
 ## Parthenon/Kokkos's MPI detection just works (no GPU backend here, so no
@@ -34,7 +34,8 @@ RUN git checkout v25.12
 ## all disabled -- none of them are needed to build/run the burgers
 ## benchmark in a container. Kokkos_ENABLE_OPENMP turns on host threading
 ## instead of falling back to Kokkos's single-threaded Serial backend.
-ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
+ARG CMAKE_FLAGS="-DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DCMAKE_BUILD_TYPE=Release \
     -DPARTHENON_DISABLE_HDF5=ON \
     -DPARTHENON_ENABLE_PYTHON_MODULE_CHECK=OFF \
     -DREGRESSION_GOLD_STANDARD_SYNC=OFF \
@@ -45,6 +46,10 @@ ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
 ENV CC=mpicc
 ENV CXX=mpicxx
 ENV FC=mpifort
+ENV CFLAGS="-w"
+ENV CXXFLAGS="-w"
+ENV FCFLAGS="-w"
+ENV LDFLAGS="-Wl,--enable-new-dtags -w"
 
 WORKDIR /tmp/build
 RUN cmake ${CMAKE_FLAGS} && \
@@ -64,5 +69,9 @@ ENV LD_LIBRARY_PATH=${OLIB}
 ENV CC=
 ENV CXX=
 ENV FC=
+ENV CFLAGS=
+ENV CXXFLAGS=
+ENV FCFLAGS=
+ENV LDFLAGS=
 
 WORKDIR /workspace

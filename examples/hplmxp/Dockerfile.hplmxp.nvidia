@@ -13,8 +13,6 @@ ARG OLIB=${LD_LIBRARY_PATH}
 
 COPY src/${TEST_NAME}/ ${SRC_DIR}/
 
-RUN dnf clean all
-
 ENV OFI_HOME=${INSTALL_DIR}/libfabric
 ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
 ENV CUDA_HOME=/usr/local/cuda
@@ -28,7 +26,7 @@ ENV NVCC_APPEND_FLAGS="-forward-unknown-to-host-compiler --expt-relaxed-constexp
 ## to a multi-arch fat binary spanning several recent generations so no
 ## --build-arg is required for the common case. Override with e.g.
 ## `--build-arg CUDA_ARCH=90` to build faster for a single known GPU.
-ARG CUDA_ARCH="70;75;80;86;89;90;100;120"
+ARG CUDA_ARCH="75;80;86;89;90;100;120"
 
 ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
 -DHPLMXP_MPI_DIR=${MPI_HOME} \
@@ -43,6 +41,10 @@ ${SRC_DIR}/${REPO_NAME}"
 ENV CC=mpicc
 ENV CXX=mpicxx
 ENV FC=mpifort
+ENV CFLAGS="-w"
+ENV CXXFLAGS="-w"
+ENV FCFLAGS="-w"
+ENV LDFLAGS="-Wl,--enable-new-dtags -w"
 
 WORKDIR ${SRC_DIR}/${REPO_NAME}
 RUN git checkout cuda_port
@@ -57,5 +59,9 @@ ENV LD_LIBRARY_PATH=${OLIB}
 ENV CC=
 ENV CXX=
 ENV FC=
+ENV CFLAGS=
+ENV CXXFLAGS=
+ENV FCFLAGS=
+ENV LDFLAGS=
 
 WORKDIR /workspace

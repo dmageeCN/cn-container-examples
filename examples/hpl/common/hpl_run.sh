@@ -41,7 +41,7 @@ if [[ $GPU == 'amd' ]]; then
 
     ## for IPC HANDLE[should enable xgmi on intra node comm]
     export FI_OPX_GPU_IPC_INTRANODE=1
-    export FI_HMEM_CUDA_USE_GDRCOPY=1
+    # export FI_HMEM_CUDA_USE_GDRCOPY=1
 fi
 
 # # ENABLE HFISVC?

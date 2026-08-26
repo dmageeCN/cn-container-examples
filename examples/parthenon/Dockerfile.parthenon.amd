@@ -13,20 +13,18 @@ ARG OLIB=${LD_LIBRARY_PATH}
 
 COPY src/${TEST_NAME}/ ${SRC_DIR}/
 
-## The CMake shipped by the base OS is too old for Parthenon (requires
-## >= 3.16, but newer is safer) -- pull a fresh one from dnf, matching the
-## other examples' convention.
-RUN dnf install -y cmake && \
-    dnf clean all
-
 ENV OFI_HOME=${INSTALL_DIR}/libfabric
 ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
 ENV ROCM_HOME=/opt/rocm
 ENV PATH="${OFI_HOME}/bin:${ROCM_HOME}/bin:${MPI_HOME}/bin:${PATH}"
 ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${ROCM_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
 
+## Build off develop as cloned by getsrc.sh rather than pinning to a
+## release tag -- see the nvidia Dockerfile for why v25.12 is avoided
+## (Kokkos submodule/C++ standard mismatch, plus the pinned Kokkos version
+## being incompatible with modern toolchains). develop is what's actually
+## known-good here.
 WORKDIR ${SRC_DIR}/${REPO_NAME}
-RUN git checkout v25.12
 
 ## Kokkos's HIP backend expects CMAKE_CXX_COMPILER to be hipcc directly
 ## (matching upstream Kokkos's own FrontierAndCrusher.cmake "hip" variant),
@@ -45,7 +43,8 @@ RUN git checkout v25.12
 ## VEGA90A/MI250X, AMD_GFX942/MI300X, AMD_GFX950/MI350X), defaulting to
 ## MI300X but overridable via `--build-arg AMD_ARCH=...`.
 ARG AMD_ARCH=AMD_GFX942
-ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
+ARG CMAKE_FLAGS="-DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DCMAKE_BUILD_TYPE=Release \
     -DPARTHENON_DISABLE_HDF5=ON \
     -DPARTHENON_ENABLE_PYTHON_MODULE_CHECK=OFF \
     -DREGRESSION_GOLD_STANDARD_SYNC=OFF \
@@ -58,7 +57,10 @@ ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
 ENV CC=mpicc
 ENV CXX=${ROCM_HOME}/bin/hipcc
 ENV FC=mpifort
-ENV CXXFLAGS="-I${MPI_HOME}/include"
+ENV CXXFLAGS="-I${MPI_HOME}/include -w"
+ENV CFLAGS="-w"
+ENV FCFLAGS="-w"
+ENV LDFLAGS="-Wl,--enable-new-dtags -w"
 
 WORKDIR /tmp/build
 RUN cmake ${CMAKE_FLAGS} && \
@@ -78,6 +80,9 @@ ENV LD_LIBRARY_PATH=${OLIB}
 ENV CC=
 ENV CXX=
 ENV FC=
+ENV CFLAGS=
 ENV CXXFLAGS=
+ENV FCFLAGS=
+ENV LDFLAGS=
 
 WORKDIR /workspace

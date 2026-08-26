@@ -28,8 +28,6 @@ fi
 : ${HPLARGS:=''}
 : ${NNODES:=$SLURM_NNODES}
 : ${VER:=2}
-: ${Ni:=45312}
-: ${NBi:=384}
 : ${HFISVC:=1}
 
 export VER
@@ -45,7 +43,7 @@ mkdir -p $rslt_dir
 
 OUTFILE="$rslt_dir/${NAME}-${TYPE}-${THEDATE}.out"
 
-mpi_args="-np ${NPROCS} --map-by ppr:${PPN}:node --report-bindings"
+mpi_args="-np ${NPROCS} --map-by ppr:${PPN}:node --bind-to none"
 ctr_args="apptainer exec --bind /lib/modules,${TEST_DIR}/common:/loc_mnt"
 ctr_args+="${CTR_GPU_ARGS}"
 
@@ -67,6 +65,8 @@ exec_tests() {
 
 exec_tests | tee -a $OUTFILE
 
-grep Final $OUTFILE
+cat HPL.out | tee -a $OUTFILE
 
-## POST PROC
+rm -rf HPL.out
+
+grep Final $OUTFILE

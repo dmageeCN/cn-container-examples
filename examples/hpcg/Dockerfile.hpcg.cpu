@@ -13,8 +13,6 @@ ARG OLIB=${LD_LIBRARY_PATH}
 
 COPY src/${TEST_NAME}/ ${SRC_DIR}/
 
-RUN dnf clean all
-
 ENV OFI_HOME=${INSTALL_DIR}/libfabric
 ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
 ENV PATH="${OFI_HOME}/bin:${MPI_HOME}/bin:${PATH}"
@@ -26,7 +24,8 @@ ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRARY_PATH}"
 ## multi-node/multi-core CPU path. There's also no CMAKE_INSTALL_PREFIX to
 ## set; the built xhpcg binary lands directly in the (out-of-source) build
 ## dir, so we copy it into INSTALL_DIR/${REPO_NAME} ourselves below.
-ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
+ARG CMAKE_FLAGS="-DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DCMAKE_BUILD_TYPE=Release \
     -DHPCG_ENABLE_MPI=ON \
     -DHPCG_ENABLE_OPENMP=ON \
     ${SRC_DIR}/${REPO_NAME}"
@@ -34,6 +33,10 @@ ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
 ENV CC=mpicc
 ENV CXX=mpicxx
 ENV FC=mpifort
+ENV CFLAGS="-w"
+ENV CXXFLAGS="-w"
+ENV FCFLAGS="-w"
+ENV LDFLAGS="-Wl,--enable-new-dtags -w"
 
 WORKDIR /tmp/build
 RUN cmake ${CMAKE_FLAGS} && \
@@ -48,5 +51,9 @@ ENV LD_LIBRARY_PATH=${OLIB}
 ENV CC=
 ENV CXX=
 ENV FC=
+ENV CFLAGS=
+ENV CXXFLAGS=
+ENV FCFLAGS=
+ENV LDFLAGS=
 
 WORKDIR /workspace

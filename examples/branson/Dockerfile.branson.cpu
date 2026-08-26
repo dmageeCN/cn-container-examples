@@ -13,10 +13,11 @@ ARG OLIB=${LD_LIBRARY_PATH}
 
 COPY src/${TEST_NAME}/ ${SRC_DIR}/
 
-## Branson requires CMake >= 3.24 (newer than any of the other examples in
-## this repo) -- the base OS's cmake is almost certainly too old, so pull a
-## fresh one from dnf, matching the other examples' convention.
-RUN dnf install -y cmake && \
+## Branson's bundled FindMETIS.cmake searches for plain metis.h/libmetis.so.
+## The metis64-devel package (64-bit-integer METIS variant) ships differently
+## named files (metis64.h/libmetis64.so) that FindMETIS.cmake never finds --
+## install the plain metis-devel package instead so the expected names exist.
+RUN dnf install -y metis-devel && \
     dnf clean all
 
 ENV OFI_HOME=${INSTALL_DIR}/libfabric
@@ -36,15 +37,35 @@ WORKDIR ${SRC_DIR}/${REPO_NAME}
 ## nvcc_wrapper/hipcc juggling needed even on the GPU variants of this
 ## Dockerfile family). Testing is disabled since we only need the BRANSON
 ## binary for a container run.
-ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
+##
+## Branson's own FindOpenMP fallback (src/CMakeLists.txt) only special-cases
+## the Cray compiler wrapper and otherwise hard FATAL_ERRORs if stock CMake
+## FindOpenMP can't identify the compiler -- fragile on non-GNU/Clang
+## toolchains (e.g. Intel oneAPI's LLVM-based icx/icpx). Pre-seed OpenMP's
+## own cache variables so FindOpenMP short-circuits its compiler-guessing
+## entirely and just accepts these; override OPENMP_FLAG/OPENMP_LIB via
+## --build-arg for a different compiler (e.g. -fiopenmp / iomp5 for icx).
+ARG OPENMP_FLAG="-fopenmp"
+ARG OPENMP_LIB="gomp"
+ARG CMAKE_FLAGS="-DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
     -DBUILD_TESTING=OFF \
     -DUSE_OPENMP=ON \
+    -DOpenMP_C_FLAGS=${OPENMP_FLAG} \
+    -DOpenMP_C_LIB_NAMES=${OPENMP_LIB} \
+    -DOpenMP_CXX_FLAGS=${OPENMP_FLAG} \
+    -DOpenMP_CXX_LIB_NAMES=${OPENMP_LIB} \
+    -DOpenMP_${OPENMP_LIB}_LIBRARY=${OPENMP_LIB} \
     ${SRC_DIR}/${REPO_NAME}/src"
 
 ENV CC=mpicc
 ENV CXX=mpicxx
 ENV FC=mpifort
+ENV CFLAGS="-w"
+ENV CXXFLAGS="-w"
+ENV FCFLAGS="-w"
+ENV LDFLAGS="-Wl,--enable-new-dtags -w"
 
 WORKDIR /tmp/build
 RUN cmake ${CMAKE_FLAGS} && \
@@ -62,5 +83,9 @@ ENV LD_LIBRARY_PATH=${OLIB}
 ENV CC=
 ENV CXX=
 ENV FC=
+ENV CFLAGS=
+ENV CXXFLAGS=
+ENV FCFLAGS=
+ENV LDFLAGS=
 
 WORKDIR /workspace

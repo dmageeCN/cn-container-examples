@@ -52,7 +52,7 @@ get_repo_home() {
     fi
 }
 
-empath () {
+empath() {
 	if [[ $# -lt 1 ]]
 	then
 		echo $PATH | tr : "\n" | nl -n ln
@@ -66,7 +66,7 @@ empath () {
 	fi
 }
 
-mkcd () {
+mkcd() {
     mkdir -p "${1}" && cd "${1}"
 }
 
@@ -97,12 +97,10 @@ set_paths() {
     ## (e.g. installed to HOST_INSTALL/libfabric-${type}) can override this
     ## from the command line: OFI_HOME=... (setvar exports it before
     ## set_paths runs, so the default below only applies if it's still unset).
-    : ${OFI_HOME:=/usr}
-    export OFI_HOME
     export MPI_HOME=${HOST_INSTALL}/openmpi-5.0.8
 
-    export PATH=${MPI_HOME}/bin:${OFI_HOME}/bin:$PATH
-    export LD_LIBRARY_PATH=${MPI_HOME}/lib:${OFI_HOME}/lib:$LD_LIBRARY_PATH
+    export PATH=${MPI_HOME}/bin:$PATH
+    export LD_LIBRARY_PATH=${MPI_HOME}/lib:$LD_LIBRARY_PATH
     export CTR_IMAGE="${IMAGE_DIR}/${image_str}_v${VER}.sif"
     if [[ ! (-f $CTR_IMAGE) ]]; then
         echo "There is no image for ${NAME} of this type=${TYPE}."
@@ -258,3 +256,7 @@ cmake_it() {
     make -j 16
     make -j 16 install
 }
+
+these_func=$(awk '/\(\)/ {print $1}' $ROOT_DIR/util | tr -d '()' | tr '\n' ' ')
+
+export -f $these_funcs

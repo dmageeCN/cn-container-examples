@@ -34,7 +34,6 @@ fi
 : ${RTi:=60}
 : ${HFISVC:=1}
 
-
 export VER
 
 ## detect_gpu (called by gpu_run_env) is a no-op if TYPE is already exported
@@ -47,7 +46,7 @@ rslt_dir=$RESULTS_DIR
 mkdir -p $rslt_dir
 OUTFILE="$rslt_dir/${NAME}-${TYPE}-${THEDATE}.out"
 
-mpi_args="-np ${NPROCS} --map-by ppr:${PPN}:node --report-bindings"
+mpi_args="-np ${NPROCS} --map-by ppr:${PPN}:node --bind-to none"
 ctr_args="apptainer exec --bind /lib/modules,${TEST_DIR}/common:/loc_mnt"
 ctr_args+="${CTR_GPU_ARGS}"
 
@@ -72,8 +71,4 @@ exec_tests | tee -a $OUTFILE
 
 grep Final $OUTFILE
 
-## POST PROC
-
-## OLD CMD
-# echo "mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPCGARGS}" | tee $OUTFILE
-# mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPCGARGS} | tee -a $OUTFILE
+rm -rf hpcg20* HPCG-Bench*

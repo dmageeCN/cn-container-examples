@@ -62,7 +62,7 @@ HPCGARGS="${NXi} ${NYi} ${NZi} ${RTi}"
 ## (nvidia/amd/none) -- use it to pick the right binary: the GPU-enabled
 ## rocHPCG port, or upstream's stock CPU-only xhpcg.
 if [[ $GPU == 'nvidia' || $GPU == 'amd' ]]; then
-    HPCG_BIN=/usr/local/rocHPCG/rochpcg
+    HPCG_BIN=/usr/local/rocHPCG/bin/rochpcg
 else
     HPCG_BIN=/usr/local/hpcg/bin/xhpcg
 fi

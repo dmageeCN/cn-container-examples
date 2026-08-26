@@ -14,4 +14,6 @@ export TEST_DIR=${ROOT_DIR}/examples/${NAME}
 source $ROOT_DIR/util
 setvar "$@"
 
+ulimit -n 65000
+
 ${TEST_DIR}/run.sh "$@"

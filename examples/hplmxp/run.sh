@@ -45,7 +45,7 @@ mkdir -p $rslt_dir
 
 OUTFILE="$rslt_dir/${NAME}-${TYPE}-${THEDATE}.out"
 
-mpi_args="-np ${NPROCS} --map-by ppr:${PPN}:node --report-bindings"
+mpi_args="-np ${NPROCS} --map-by ppr:${PPN}:node --bind-to none"
 ctr_args="apptainer exec --bind /lib/modules,${TEST_DIR}/common:/loc_mnt"
 ctr_args+="${CTR_GPU_ARGS}"
 
@@ -68,8 +68,4 @@ exec_tests | tee -a $OUTFILE
 
 grep Final $OUTFILE
 
-## POST PROC
-
-## OLD CMD
-# echo "mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPLMXARGS}" | tee $OUTFILE
-# mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPLMXARGS} | tee -a $OUTFILE
+rm -rf HPL-MxP.out
