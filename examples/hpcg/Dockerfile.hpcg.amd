@@ -13,8 +13,6 @@ ARG OLIB=${LD_LIBRARY_PATH}
 
 COPY src/${TEST_NAME}/ ${SRC_DIR}/
 
-RUN dnf clean all
-
 ENV OFI_HOME=${INSTALL_DIR}/libfabric
 ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
 ENV ROCM_HOME=/opt/rocm
@@ -26,16 +24,24 @@ ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${ROCM_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRA
 ## fat binary supported by the detected ROCm/HIP version, and separately
 ## documents a `-DGPU_TARGETS=...` override for anyone who wants to narrow
 ## it -- no need to hardcode a single arch here.
-ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
-    -DHPCG_MPI_DIR=${MPI_HOME} \
-    -DROCM_PATH=${ROCM_HOME} \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DOPT_ROCTX=ON \
-    ${SRC_DIR}/${REPO_NAME}"
-
 ENV CC=mpicc
 ENV CXX=mpicxx
 ENV FC=mpifort
+ENV CFLAGS="-w"
+ENV CXXFLAGS="-w"
+ENV FCFLAGS="-w"
+ENV LDFLAGS="-Wl,--enable-new-dtags -w"
+
+ARG CMAKE_FLAGS="-DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
+    -DHPCG_MPI_DIR=${MPI_HOME} \
+    -DROCM_PATH=${ROCM_HOME} \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DGPU_AWARE_MPI=ON \
+    -DOPT_ROCTX=ON \
+    -DHIP_HIPCC_FLAGS=-I${MPI_HOME}/include \
+    ${SRC_DIR}/${REPO_NAME}"
+
 
 WORKDIR ${SRC_DIR}/${REPO_NAME}
 RUN git checkout develop
@@ -50,5 +56,9 @@ ENV LD_LIBRARY_PATH=${OLIB}
 ENV CC=
 ENV CXX=
 ENV FC=
+ENV CFLAGS=
+ENV CXXFLAGS=
+ENV FCFLAGS=
+ENV LDFLAGS=
 
 WORKDIR /workspace

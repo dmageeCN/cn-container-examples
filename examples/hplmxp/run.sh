@@ -19,10 +19,10 @@ if [[ -z $ROOT_DIR ]]; then
     export ROOT_DIR=$d
 fi
 
-if [[ -z $UTIL_SOURCED ]]; then
+#if [[ -z $UTIL_SOURCED ]]; then
     source $ROOT_DIR/util
     setvar "$@"
-fi
+#fi
 
 : ${PPN:=8}
 : ${HPLARGS:=''}

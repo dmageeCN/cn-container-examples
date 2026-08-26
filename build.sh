@@ -5,6 +5,8 @@
 #     ./build.sh $k
 # done
 
+set -eo pipefail
+
 ## FIND THIS DIRECTORY
 THISFILE=${BASH_SOURCE[0]}
 : ${THISFILE:=$0}
@@ -61,11 +63,16 @@ done
 
 si=${SECONDS}
 
+echo "docker build -t ${CNTR_TITLE} -f $DOCKERFILE ${BUILD_ARGS[@]}"
 docker build -t ${CNTR_TITLE} -f $DOCKERFILE "${BUILD_ARGS[@]}" --progress=plain . |& tee $OUTFILE
+
+# if [ $? -ne 0 ]; then
+#     exit 1
+# fi
 
 apptainer_build $CNTR_TITLE
 
 sf=$(( SECONDS-si ))
 
 echo "Took ${sf} seconds to build $CNTR_TITLE"
-echo "APPTAINER sif: 
+echo "APPTAINER sif: $CNTR_TITLE"

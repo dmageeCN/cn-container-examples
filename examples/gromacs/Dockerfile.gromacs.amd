@@ -16,7 +16,7 @@ COPY src/${TEST_NAME}/ ${SRC_DIR}/
 ## fftw3 isn't guaranteed to be in the base image, and the CMake shipped by
 ## the base OS is too old for GROMACS (requires >= 3.28) -- pull both from
 ## dnf.
-RUN dnf install -y fftw-devel cmake && \
+RUN dnf install -y fftw-devel openblas-devel && \
     dnf clean all
 
 ENV OFI_HOME=${INSTALL_DIR}/libfabric
@@ -36,7 +36,8 @@ ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${ROCM_HOME}/lib:${MPI_HOME}/lib:${LD_LIBRA
 ## faster for a single known GPU.
 ARG HIP_ARCH="gfx801,gfx802,gfx803,gfx900,gfx906,gfx90a,gfx90c,gfx942,gfx950"
 
-ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
+ARG CMAKE_FLAGS="-DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
     -DGMX_MPI=on \
     -DGMX_FFT_LIBRARY=fftw3 \
     -DGMX_SIMD=AVX_512 \
@@ -47,6 +48,7 @@ ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
     -DCMAKE_PREFIX_PATH=${ROCM_HOME} \
     -DGMX_HIP_TARGET_ARCH=${HIP_ARCH} \
     -DOpenMP_CXX_FLAGS=-fopenmp \
+    -DGMX_EXTERNAL_BLAS=ON -DGMX_EXTERNAL_LAPACK=ON \
     ${SRC_DIR}/${REPO_NAME}"
 
 ENV CC=mpicc
@@ -54,6 +56,8 @@ ENV CXX=mpicxx
 ENV FC=mpifort
 ENV CFLAGS="-w -fPIC"
 ENV CXXFLAGS="-w -fPIC"
+ENV FCFLAGS="-w"
+ENV LDFLAGS="-Wl,--enable-new-dtags -w"
 
 WORKDIR ${SRC_DIR}/${REPO_NAME}
 RUN git checkout v2026.3
@@ -74,5 +78,7 @@ ENV CXX=
 ENV FC=
 ENV CFLAGS=
 ENV CXXFLAGS=
+ENV FCFLAGS=
+ENV LDFLAGS=
 
 WORKDIR /workspace

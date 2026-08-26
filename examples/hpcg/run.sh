@@ -19,10 +19,10 @@ if [[ -z $ROOT_DIR ]]; then
     export ROOT_DIR=$d
 fi
 
-if [[ -z $UTIL_SOURCED ]]; then
-    source $ROOT_DIR/util
-    setvar "$@"
-fi
+#if [[ -z $UTIL_SOURCED ]]; then
+source $ROOT_DIR/util
+setvar "$@"
+#fi
 
 : ${PPN:=8}
 : ${TESTARGS:=''}

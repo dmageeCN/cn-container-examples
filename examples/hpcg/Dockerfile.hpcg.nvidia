@@ -30,6 +30,10 @@ ENV NVCC_APPEND_FLAGS="-forward-unknown-to-host-compiler --expt-relaxed-constexp
 ## `--build-arg CUDA_ARCH=90` to build faster for a single known GPU.
 ARG CUDA_ARCH="70;75;80;86;89;90;100;120"
 
+ENV CC=mpicc
+ENV CXX=mpicxx
+ENV FC=mpifort
+
 ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
 -DHPCG_MPI_DIR=${MPI_HOME} \
 -DCUDAToolkit_ROOT=${CUDA_HOME} \
@@ -37,11 +41,8 @@ ARG CMAKE_FLAGS="-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}/${REPO_NAME} \
 -DCMAKE_BUILD_TYPE=Release \
 -DOPT_NVTX=ON \
 -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH} \
+-DCMAKE_CUDA_HOST_COMPILER=$CXX \
 ${SRC_DIR}/${REPO_NAME}"
-
-ENV CC=mpicc
-ENV CXX=mpicxx
-ENV FC=mpifort
 
 WORKDIR ${SRC_DIR}/${REPO_NAME}
 RUN git checkout cuda_port

@@ -13,12 +13,6 @@ ARG OLIB=${LD_LIBRARY_PATH}
 
 COPY src/${TEST_NAME}/ ${SRC_DIR}/
 
-## The CMake shipped by the base OS is too old for Parthenon (requires
-## >= 3.16, but newer is safer) -- pull a fresh one from dnf, matching the
-## other examples' convention.
-RUN dnf install -y cmake && \
-    dnf clean all
-
 ENV OFI_HOME=${INSTALL_DIR}/libfabric
 ENV MPI_HOME=${INSTALL_DIR}/openmpi-${OMPI_VER}
 ENV CUDA_HOME=/usr/local/cuda
@@ -27,8 +21,16 @@ ENV PATH="${OFI_HOME}/bin:${MPI_HOME}/bin:${CUDA_HOME}/bin:${PATH}"
 ENV LD_LIBRARY_PATH="${OFI_HOME}/lib:${MPI_HOME}/lib:${CUDA_HOME}/lib64:${CUDA_STUBS}:${LD_LIBRARY_PATH}"
 ENV NVCC_APPEND_FLAGS='-forward-unknown-to-host-compiler --expt-relaxed-constexpr'
 
+## Build off develop as cloned by getsrc.sh rather than pinning to a
+## release tag. The v25.12 release tag's own CMakeLists.txt requests C++17,
+## which mismatches the Kokkos submodule commit left behind by a plain
+## `git checkout v25.12` (no submodule sync); even with the submodule fixed
+## up, that pinned Kokkos version's nvcc_wrapper/CUDA support predates
+## breaking changes in newer CUDA APIs (e.g. cudaGraphAddDependencies,
+## cudaMemAdvise/cudaMemPrefetchAsync signature changes in CUDA 13.x) and
+## fails outright. develop tracks a newer Kokkos that's actually compatible
+## with current CUDA toolkits, so we just build it as-is.
 WORKDIR ${SRC_DIR}/${REPO_NAME}
-RUN git checkout v25.12
 
 ## Kokkos's CUDA backend requires CMAKE_CXX_COMPILER to be either Clang or
 ## its own nvcc_wrapper (a thin bash wrapper around nvcc + a host compiler,
@@ -47,7 +49,8 @@ RUN git checkout v25.12
 ## full list, e.g. VOLTA70, AMPERE80, ADA89, HOPPER90, BLACKWELL100),
 ## defaulting to H100 but overridable via `--build-arg NVIDIA_ARCH=...`.
 ARG NVIDIA_ARCH=HOPPER90
-ARG CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release \
+ARG CMAKE_FLAGS="-DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DCMAKE_BUILD_TYPE=Release \
     -DPARTHENON_DISABLE_HDF5=ON \
     -DPARTHENON_ENABLE_PYTHON_MODULE_CHECK=OFF \
     -DREGRESSION_GOLD_STANDARD_SYNC=OFF \
@@ -61,6 +64,10 @@ ENV CC=mpicc
 ENV CXX=${SRC_DIR}/${REPO_NAME}/external/Kokkos/bin/nvcc_wrapper
 ENV FC=mpifort
 ENV NVCC_WRAPPER_DEFAULT_COMPILER=mpicxx
+ENV CFLAGS="-w"
+ENV CXXFLAGS="-w"
+ENV FCFLAGS="-w"
+ENV LDFLAGS="-Wl,--enable-new-dtags -w"
 
 WORKDIR /tmp/build
 RUN cmake ${CMAKE_FLAGS} && \
@@ -81,5 +88,9 @@ ENV CC=
 ENV CXX=
 ENV FC=
 ENV NVCC_WRAPPER_DEFAULT_COMPILER=
+ENV CFLAGS=
+ENV CXXFLAGS=
+ENV FCFLAGS=
+ENV LDFLAGS=
 
 WORKDIR /workspace
