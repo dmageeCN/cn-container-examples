@@ -265,6 +265,9 @@ cmake_it() {
     make -j 16 install
 }
 
-these_funcs=$(awk '/\(\)/ {print $1}' $ROOT_DIR/util | tr -d '()' | tr '\n' ' ')
+#these_funcs=$(awk '/\(\) \{$/ {print $1}' $ROOT_DIR/util | tr -d ')(' | tr '\n' ' ')
+
+these_funcs=$(declare -F | awk '{print $3}')
 
 export -f $these_funcs
+
