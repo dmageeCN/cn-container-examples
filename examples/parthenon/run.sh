@@ -25,7 +25,7 @@ if [[ -z $UTIL_SOURCED ]]; then
 fi
 
 : ${NNODES:=$SLURM_NNODES}
-: ${VER:=2}
+: ${VER:=0.1}
 : ${OMP_NUM_THREADS:=1}
 : ${HFISVC:=1}
 
@@ -73,6 +73,6 @@ exec_tests() {
     mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${PARTHARGS}
 }
 
-exec_tests | tee -a $OUTFILE
+exec_tests |& tee -a $OUTFILE
 
 grep "zone-cycles/wallsecond" $OUTFILE

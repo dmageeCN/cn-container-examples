@@ -10,7 +10,7 @@
 
 source /usr/local/bin/cn_env.sh
 
-env | grep PATH
+#env | grep PATH
 
 setvar() {
     while [[ $# -gt 0 ]]; do

@@ -26,7 +26,7 @@ fi
 
 : ${HPLARGS:=''}
 : ${NNODES:=$SLURM_NNODES}
-: ${VER:=2}
+: ${VER:=0.1}
 : ${NPERGPU:=92800}
 : ${NBi:=1024}
 : ${HFISVC:=1}
@@ -51,6 +51,7 @@ ctr_args+="${CTR_GPU_ARGS}"
 
 Pi=$(pq_grid $NPROCS)
 Qi=$(( NPROCS/Pi ))
+echo $PPN - $NNODES - $NPROCS - $NPERGPU - $Pi - $Qi
 Ni=$($TEST_DIR/hplmxp_size.py $NPROCS $NPERGPU)
 
 HPLARGS="Pi=${Pi} Qi=${Qi} Ni=${Ni} NBi=${NBi}"
@@ -67,7 +68,7 @@ exec_tests() {
     mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPLARGS}
 }
 
-exec_tests | tee -a $OUTFILE
+exec_tests |& tee -a $OUTFILE
 
 cat HPL.out | tee -a $OUTFILE
 

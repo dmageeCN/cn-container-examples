@@ -26,7 +26,7 @@ fi
 
 : ${HPLARGS:=''}
 : ${NNODES:=$SLURM_NNODES}
-: ${VER:=2}
+: ${VER:=0.1}
 : ${NPERGPU:=140000}
 : ${NBi:=4096}
 : ${HFISVC:=1}
@@ -64,7 +64,7 @@ exec_tests() {
     mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPLMXARGS}
 }
 
-exec_tests | tee -a $OUTFILE
+exec_tests |& tee -a $OUTFILE
 
 grep Final $OUTFILE
 

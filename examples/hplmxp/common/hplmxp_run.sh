@@ -12,7 +12,7 @@
 
 source /usr/local/bin/cn_env.sh
 
-env | grep PATH
+#env | grep PATH
 
 pq_grid() {
     local n=$1
@@ -42,8 +42,8 @@ export OMPI_MCA_mtl_ofi_provider_include=opx
 export FI_PROVIDER=opx
 
 if [[ $GPU == 'amd' ]]; then
-    export FI_HMEM_ROCR_USE_DMABUF=1 
-    export FI_HMEM_ROCR=1 
+    export FI_HMEM_ROCR_USE_DMABUF=1
+    export FI_HMEM_ROCR=1
     export ROCR_USE_DMABUF=1
 
     ## for IPC HANDLE[should enable xgmi on intra node comm]
@@ -67,6 +67,6 @@ Qi=$(( NPROCS/Pi ))
 HPLMXARGS="-P ${Pi} -Q ${Qi} -N ${Ni} --NB ${NBi}"
 
 if [[ $NRANK == 0 ]]; then
-    echo /usr/local/rocHPL-MxP-cuda/run_rochplmxp $HPLMXARGS
+    echo /usr/local/rocHPL-MxP/run_rochplmxp $HPLMXARGS
 fi
-/usr/local/rocHPL-MxP-cuda/run_rochplmxp $HPLMXARGS
+/usr/local/rocHPL-MxP/run_rochplmxp $HPLMXARGS

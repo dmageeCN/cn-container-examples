@@ -26,7 +26,7 @@ fi
 
 : ${TESTARGS:=''}
 : ${NNODES:=$SLURM_NNODES}
-: ${VER:=2}
+: ${VER:=0.1}
 : ${NXi:=512}
 : ${NYi:=384}
 : ${NZi:=384}
@@ -67,7 +67,7 @@ exec_tests() {
     mpirun ${mpi_args} ${ctr_args} ${CTR_IMAGE} ${ctr_wrapper} ${HPCGARGS}
 }
 
-exec_tests | tee -a $OUTFILE
+exec_tests |& tee -a $OUTFILE
 
 grep Final $OUTFILE
 

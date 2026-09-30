@@ -104,6 +104,7 @@ set_paths() {
     export CTR_IMAGE="${IMAGE_DIR}/${image_str}_v${VER}.sif"
     if [[ ! (-f $CTR_IMAGE) ]]; then
         echo "There is no image for ${NAME} of this type=${TYPE}."
+        echo "Requested image: $CTR_IMAGE"
         exit 1
     fi
 }
@@ -222,11 +223,11 @@ gpu_run_env() {
     case $TYPE in
         amd )
             CTR_GPU_ARGS=" --rocm"
-            NGPUSYS=$(nvidia-smi -q | awk '/Attached G/ {print $NF}')
+            NGPUSYS=$(amd-smi list | grep -c 'GPU:')
             ;;
         nvidia )
             CTR_GPU_ARGS=" --nv --bind /dev/hfi1_gdr,/dev/gdrdrv"
-            NGPUSYS=$(amd-smi list | grep -c 'GPU:')
+            NGPUSYS=$(nvidia-smi -q | awk '/Attached G/ {print $NF}')
             ;;
     esac
     export CTR_GPU_ARGS NGPUSYS
