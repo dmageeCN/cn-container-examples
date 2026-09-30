@@ -1,4 +1,6 @@
-FROM ghcr.io/dmageecn/cn-cpu:latest
+ARG BASE_REGISTRY=ghcr.io/dmageecn/
+ARG BASE_VERSION=latest
+FROM ${BASE_REGISTRY}cn-cpu:${BASE_VERSION}
 
 ARG TEST_NAME=hpcg
 ARG REPO_NAME=hpcg

@@ -27,6 +27,8 @@ TEST_NAME=hplmxp or hpcg
 
 The other argument can be `TYPE=cpu|nvidia|amd`. Will default to nvidia or amd if those GPUs are available. TYPE=cpu will override that.
 
+By default the base image is `ghcr.io/dmageecn/cn-<TYPE>:latest`. To build on a locally built base image (e.g. `cn-amd:v4.0`) use `CONTAINER_LOC=local VERSION=v4.0`. `VERSION` alone selects a different tag of the remote image.
+
 ``` bash
 ./run.sh TEST_NAME KEY=VALUE RUN_ARGS
 ```

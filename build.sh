@@ -22,6 +22,8 @@ source $ROOT_DIR/util
 setvar "$@"
 
 : ${VER:=0.1} # VER OF THE EXAMPLE CONTAINERS
+: ${CONTAINER_LOC:=remote} # remote (ghcr.io) or local BASE container
+: ${VERSION:=latest} # TAG OF THE BASE CONTAINER (cn-<TYPE>:${VERSION})
 
 ## Detect the GPU once here and export TYPE so every downstream script
 ## (this file, examples/<test>/build.sh) reuses it instead of re-running
@@ -60,6 +62,20 @@ for arch_var in CUDA_ARCH HIP_ARCH NVIDIA_ARCH AMD_ARCH; do
         BUILD_ARGS+=(--build-arg ${arch_var}=${!arch_var})
     fi
 done
+
+case $CONTAINER_LOC in
+    remote )
+        BUILD_ARGS+=(--build-arg BASE_REGISTRY=ghcr.io/dmageecn/)
+        ;;
+    local )
+        BUILD_ARGS+=(--build-arg BASE_REGISTRY=)
+        ;;
+    * )
+        echo "ERROR: unknown CONTAINER_LOC=${CONTAINER_LOC} (expected remote or local)." >&2
+        exit 1
+        ;;
+esac
+BUILD_ARGS+=(--build-arg BASE_VERSION=${VERSION})
 
 si=${SECONDS}
 

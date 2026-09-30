@@ -1,4 +1,6 @@
-FROM ghcr.io/dmageecn/cn-nvidia:latest
+ARG BASE_REGISTRY=ghcr.io/dmageecn/
+ARG BASE_VERSION=latest
+FROM ${BASE_REGISTRY}cn-nvidia:${BASE_VERSION}
 
 ARG TEST_NAME=branson
 ARG REPO_NAME=branson
