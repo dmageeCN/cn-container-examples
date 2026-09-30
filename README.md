@@ -45,4 +45,4 @@ examples/hplmxp/run.sh [KEY=VALUE ...]
 
 Each test lives in `examples/<name>/` (e.g. `examples/hplmxp/`) with its own
 `build.sh`/`run.sh`, Dockerfiles, and `common/`. Shared code lives in `util`
-at the repo root; `image_files/` and `results/<name>/` are also shared/root-level.
+at the repo root; `image_files/` and `results/<name>/` are also at the top level.
