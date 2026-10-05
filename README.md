@@ -1,5 +1,7 @@
 # CONTAINER EXAMPLES
 
+Cornelis users see internal note at end.
+
 ## SETUP
 
 Run `./getsrc.sh` first.
@@ -25,9 +27,12 @@ docker login ghcr.io -u <GITHUB USERNAME>
 
 TEST_NAME=hplmxp or hpcg
 
-The other argument can be `TYPE=cpu|nvidia|amd`. Will default to nvidia or amd if those GPUs are available. TYPE=cpu will override that.
+The other argument can be `TYPE=cpu|nvidia|amd`. Will default to nvidia or amd if those GPUs are available.
+TYPE=cpu will override that.
 
-By default the base image is `ghcr.io/dmageecn/cn-<TYPE>:latest`. To build on a locally built base image (e.g. `cn-amd:v4.0`) use `CONTAINER_LOC=local VERSION=v4.0`. `VERSION` alone selects a different tag of the remote image.
+By default the base image for all apps is `ghcr.io/dmageecn/cn-<TYPE>:latest`.
+To build with a local base image (e.g. `cn-amd:v4.0`) use `CONTAINER_LOC=local VERSION=v4.0`.
+`VERSION` alone selects a different tag of the remote image.
 
 ``` bash
 ./run.sh TEST_NAME KEY=VALUE RUN_ARGS

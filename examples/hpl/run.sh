@@ -46,7 +46,7 @@ mkdir -p $rslt_dir
 OUTFILE="$rslt_dir/${NAME}-${TYPE}-${THEDATE}.out"
 
 mpi_args="-np ${NPROCS} --map-by ppr:${PPN}:node --bind-to none"
-ctr_args="apptainer exec --bind /lib/modules,${TEST_DIR}/common:/loc_mnt"
+ctr_args="apptainer exec --bind /lib/modules,/boot,${TEST_DIR}/common:/loc_mnt"
 ctr_args+="${CTR_GPU_ARGS}"
 
 Pi=$(pq_grid $NPROCS)
