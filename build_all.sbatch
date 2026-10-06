@@ -1,19 +1,25 @@
 #!/bin/bash
 
 #SBATCH -o cn-examples-%j.out
-#SBATCH -J cntr-expl-bld             # job name
-#SBATCH -t 3:00:00
+#SBATCH -J container-example
+#SBATCH -t 1:00:00
 
 #exit 0
 
-date 
+date
 
-arch='cpu nvidia amd'
-tests=$(ls examples)
+action=$1
+shift
 
-# This will fail for some (Parthenon when the arch is mismatched)
+arch='amd' #'cpu nvidia amd'
+#tests=$(ls examples)
+tests='hpl hpcg hplmxp'
+
+# This will fail for some (if examples/$t/Dockerfile.$k?)
 for k in $arch; do
     for t in $tests; do
-        ./build.sh $t TYPE=$k
+        ./${action}.sh $t TYPE=$k $@
     done
 done
+
+cp cn-examples-${SLURM_JOB_ID}.out logs/cn-examples-${action}.out
