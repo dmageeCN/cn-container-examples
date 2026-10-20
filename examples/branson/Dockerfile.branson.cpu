@@ -7,7 +7,7 @@ ARG SRC_DIR=/usr/local/src
 ARG BUILD_DIR=/usr/local/build
 ARG INSTALL_DIR=/usr/local
 ARG OMPI_VER=5.0.8
-ARG ROOT_HOME=/root
+ARG CNTR_HOME=/workspace
 ARG OPATH=${PATH}
 ARG OLIB=${LD_LIBRARY_PATH}
 
