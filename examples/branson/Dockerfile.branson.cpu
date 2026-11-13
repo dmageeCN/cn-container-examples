@@ -59,6 +59,9 @@ ARG CMAKE_FLAGS="-DCMAKE_VERBOSE_MAKEFILE=ON \
     -DOpenMP_${OPENMP_LIB}_LIBRARY=${OPENMP_LIB} \
     ${SRC_DIR}/${REPO_NAME}/src"
 
+WORKDIR ${SRC_DIR}/${REPO_NAME}
+RUN git checkout ats5; git clean -ffdx
+
 ENV CC=mpicc
 ENV CXX=mpicxx
 ENV FC=mpifort

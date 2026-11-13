@@ -87,6 +87,8 @@ ARG CMAKE_FLAGS="-DCMAKE_VERBOSE_MAKEFILE=ON \
     -DCMAKE_HIP_HOST_COMPILER=$CXX \
     ${SRC_DIR}/${REPO_NAME}/src"
 
+WORKDIR ${SRC_DIR}/${REPO_NAME}
+RUN git checkout ats5; git clean -ffdx
 
 WORKDIR /tmp/build
 RUN cmake ${CMAKE_FLAGS} && \

@@ -34,7 +34,7 @@ fi
 ## repo yet (see AGENTS/sessions.md). Point TPR at wherever you've dropped
 ## your own .tpr, either on the host (bind-mounted under ${TEST_DIR}/common,
 ## which is already mounted at /loc_mnt) or elsewhere in the container.
-: ${TPR:=/loc_mnt/REPLACE_WITH_TPR_PATH.tpr}
+: ${TPR:=benchPEP-h}
 
 export VER
 
@@ -56,7 +56,7 @@ ctr_args+="${CTR_GPU_ARGS}"
 
 ## GMX-level KEY=VALUE args, consumed by the in-container wrapper's setvar.
 ## TPR is the only thing you're likely to need to override right now.
-GMXARGS="TPR=${TPR} OMP_NUM_THREADS=${OMP_NUM_THREADS} ${GMXARGS}"
+GMXARGS="TPR=/loc_mnt/${TPR}.tpr OMP_NUM_THREADS=${OMP_NUM_THREADS} ${GMXARGS}"
 
 set_paths $TYPE
 export FI_OPX_HFISVC=$HFISVC
